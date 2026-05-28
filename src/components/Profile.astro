@@ -1,0 +1,93 @@
+---
+---
+<section id="profile" class="relative py-32 px-6 overflow-hidden">
+  <!-- Background decoration -->
+  <div class="absolute right-0 top-1/2 -translate-y-1/2 w-96 h-96 opacity-5 pointer-events-none">
+    <svg viewBox="0 0 400 400" fill="none">
+      <circle cx="200" cy="200" r="180" stroke="#00d4ff" stroke-width="1" stroke-dasharray="10 5"/>
+      <circle cx="200" cy="200" r="140" stroke="#7c3aed" stroke-width="1" stroke-dasharray="5 10"/>
+      <circle cx="200" cy="200" r="100" stroke="#00d4ff" stroke-width="0.5"/>
+      <polygon points="200,40 349,130 349,270 200,360 51,270 51,130" stroke="#00d4ff" stroke-width="0.5" fill="none"/>
+    </svg>
+  </div>
+
+  <div class="max-w-5xl mx-auto relative">
+    <!-- Section label -->
+    <div class="flex items-center gap-4 mb-16">
+      <div class="h-px flex-1 bg-gradient-to-r from-transparent to-cyan-800/50"></div>
+      <span class="font-mono text-xs text-cyan-600 tracking-widest px-4">// PROFILE</span>
+      <div class="h-px flex-1 bg-gradient-to-l from-transparent to-cyan-800/50"></div>
+    </div>
+
+    <div class="grid md:grid-cols-5 gap-12 items-center">
+      <!-- Avatar area -->
+      <div class="md:col-span-2 flex justify-center">
+        <div class="relative">
+          <!-- Outer ring -->
+          <div class="absolute inset-0 rounded-full border border-cyan-800/40 animate-pulse-slow scale-110"></div>
+          <div class="absolute inset-0 rounded-full border border-purple-800/30 scale-125"></div>
+          <!-- Avatar placeholder -->
+          <div class="relative w-48 h-48 rounded-full bg-gradient-to-br from-cyan-950 to-purple-950 border border-cyan-800/50 flex items-center justify-center overflow-hidden">
+            <!-- Circuit pattern inside -->
+            <svg class="absolute inset-0 w-full h-full opacity-20" viewBox="0 0 200 200" fill="none">
+              <circle cx="100" cy="100" r="90" stroke="#00d4ff" stroke-width="0.5"/>
+              <line x1="100" y1="10" x2="100" y2="190" stroke="#00d4ff" stroke-width="0.3"/>
+              <line x1="10" y1="100" x2="190" y2="100" stroke="#00d4ff" stroke-width="0.3"/>
+              <circle cx="100" cy="100" r="20" stroke="#7c3aed" stroke-width="1"/>
+            </svg>
+            <span class="text-5xl relative z-10">🧙</span>
+          </div>
+          <!-- Status indicator -->
+          <div class="absolute bottom-2 right-2 flex items-center gap-1.5 bg-[#0a0a1f] border border-cyan-900/60 rounded-full px-3 py-1">
+            <div class="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse"></div>
+            <span class="font-mono text-[10px] text-green-400">ONLINE</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Profile info -->
+      <div class="md:col-span-3 space-y-6">
+        <div>
+          <div class="font-mono text-xs text-cyan-600 tracking-widest mb-2">// ENGINEER PROFILE</div>
+          <h2 class="text-3xl font-serif font-semibold text-white mb-1">Tomono</h2>
+          <p class="text-gray-500 text-sm font-mono">Embedded Software Engineer</p>
+        </div>
+
+        <p class="text-gray-400 leading-relaxed">
+          車載制御ソフトウェアの開発に携わるエンジニア。
+          CAN通信とAUTOSAR BSWを中心に、組み込みシステムの設計・実装に従事。
+        </p>
+        <p class="text-gray-400 leading-relaxed">
+          「技術は物語として理解できる」という信念のもと、
+          複雑な仕様を直感的なメタファーで伝えることを目指しています。
+        </p>
+
+        <!-- Skill tags -->
+        <div class="space-y-3">
+          <div class="font-mono text-[11px] text-gray-600 tracking-wider">SPECIALIZATIONS:</div>
+          <div class="flex flex-wrap gap-2">
+            {['AUTOSAR BSW', 'CAN / CANFD', 'UDS診断', 'MISRA-C', 'OSEK/VDX', 'ECU設計', 'Python', 'CAPL'].map(skill => (
+              <span class="font-mono text-xs px-3 py-1 border border-cyan-900/50 rounded text-cyan-600 bg-cyan-950/20 hover:border-cyan-600 hover:text-cyan-400 transition-colors cursor-default">
+                {skill}
+              </span>
+            ))}
+          </div>
+        </div>
+
+        <!-- Stats row -->
+        <div class="grid grid-cols-3 gap-4 pt-4 border-t border-gray-800/50">
+          {[
+            { value: '5+', label: '年の経験' },
+            { value: '10+', label: '担当ECU' },
+            { value: '∞', label: '魔法探求' },
+          ].map(stat => (
+            <div class="text-center">
+              <div class="text-2xl font-mono font-bold text-cyan-400">{stat.value}</div>
+              <div class="text-gray-600 text-xs mt-1">{stat.label}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  </div>
+</section>

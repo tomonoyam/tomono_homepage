@@ -1,0 +1,81 @@
+---
+import Layout from '../layouts/Layout.astro';
+import Nav from '../components/Nav.astro';
+import Hero from '../components/Hero.astro';
+import About from '../components/About.astro';
+import Topics from '../components/Topics.astro';
+import Articles from '../components/Articles.astro';
+import Profile from '../components/Profile.astro';
+import Contact from '../components/Contact.astro';
+import Footer from '../components/Footer.astro';
+---
+
+<Layout title="AUTOSAR.MAGIC — 車に宿る魔法体系">
+  <Nav />
+  <main>
+    <Hero />
+    <About />
+    <Topics />
+    <Articles />
+    <Profile />
+    <Contact />
+  </main>
+  <Footer />
+</Layout>
+
+<style is:global>
+  html {
+    scroll-behavior: smooth;
+  }
+
+  /* Custom scrollbar */
+  ::-webkit-scrollbar {
+    width: 4px;
+  }
+  ::-webkit-scrollbar-track {
+    background: #06060f;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #0d1b4b;
+    border-radius: 2px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #00d4ff33;
+  }
+
+  /* Selection color */
+  ::selection {
+    background: rgba(0, 212, 255, 0.2);
+    color: #e2e8f0;
+  }
+
+  /* Intersection Observer fade-in animations */
+  .fade-in {
+    opacity: 0;
+    transform: translateY(20px);
+    transition: opacity 0.7s ease, transform 0.7s ease;
+  }
+  .fade-in.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+</style>
+
+<script>
+  // Fade-in on scroll
+  const observer = new IntersectionObserver(
+    (entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('visible');
+        }
+      });
+    },
+    { threshold: 0.1 }
+  );
+
+  document.querySelectorAll('section > *:not(.absolute):not(.fixed)').forEach(el => {
+    el.classList.add('fade-in');
+    observer.observe(el);
+  });
+</script>

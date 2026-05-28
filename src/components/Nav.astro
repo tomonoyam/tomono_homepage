@@ -1,0 +1,52 @@
+---
+---
+<nav class="fixed top-0 left-0 right-0 z-50 px-6 py-4" id="navbar">
+  <div class="max-w-6xl mx-auto flex items-center justify-between">
+    <a href="#" class="font-mono text-sm text-cyan-400 tracking-widest hover:text-cyan-300 transition-colors">
+      <span class="text-cyan-600">✦</span> AUTOSAR.MAGIC
+    </a>
+    <ul class="hidden md:flex items-center gap-8 text-sm text-gray-400">
+      <li><a href="#about" class="hover:text-cyan-400 transition-colors">About</a></li>
+      <li><a href="#topics" class="hover:text-cyan-400 transition-colors">Topics</a></li>
+      <li><a href="#articles" class="hover:text-cyan-400 transition-colors">Articles</a></li>
+      <li><a href="#profile" class="hover:text-cyan-400 transition-colors">Profile</a></li>
+      <li><a href="#contact" class="hover:text-cyan-400 transition-colors border border-cyan-800 px-4 py-1.5 rounded hover:border-cyan-400">Contact</a></li>
+    </ul>
+    <button id="menu-btn" class="md:hidden text-cyan-400" aria-label="メニュー">
+      <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+      </svg>
+    </button>
+  </div>
+  <div id="mobile-menu" class="hidden md:hidden mt-4 pb-4 border-t border-cyan-900/50">
+    <ul class="flex flex-col gap-4 mt-4 text-sm text-gray-400 px-2">
+      <li><a href="#about" class="hover:text-cyan-400 transition-colors">About</a></li>
+      <li><a href="#topics" class="hover:text-cyan-400 transition-colors">Topics</a></li>
+      <li><a href="#articles" class="hover:text-cyan-400 transition-colors">Articles</a></li>
+      <li><a href="#profile" class="hover:text-cyan-400 transition-colors">Profile</a></li>
+      <li><a href="#contact" class="hover:text-cyan-400 transition-colors">Contact</a></li>
+    </ul>
+  </div>
+</nav>
+
+<script>
+  const navbar = document.getElementById('navbar');
+  const menuBtn = document.getElementById('menu-btn');
+  const mobileMenu = document.getElementById('mobile-menu');
+
+  window.addEventListener('scroll', () => {
+    if (window.scrollY > 50) {
+      navbar?.classList.add('bg-[#06060f]/90', 'backdrop-blur-md', 'border-b', 'border-cyan-900/30');
+    } else {
+      navbar?.classList.remove('bg-[#06060f]/90', 'backdrop-blur-md', 'border-b', 'border-cyan-900/30');
+    }
+  });
+
+  menuBtn?.addEventListener('click', () => {
+    mobileMenu?.classList.toggle('hidden');
+  });
+
+  document.querySelectorAll('#mobile-menu a').forEach(link => {
+    link.addEventListener('click', () => mobileMenu?.classList.add('hidden'));
+  });
+</script>

@@ -1,0 +1,120 @@
+---
+const articles = [
+  {
+    id: 'art-001',
+    title: 'CAN通信は魔法陣である',
+    excerpt: 'ID、DLC、データ。たった8バイトのフレームに込められた設計の妙。CANバスの仲裁ロジックは、まるで複数の術者が同時詠唱する魔法陣の制御に似ている。',
+    tags: ['CAN', '通信プロトコル', '入門'],
+    date: '2025-01-15',
+    readTime: '8分',
+    level: '入門',
+    levelColor: 'text-green-400 border-green-800/50 bg-green-950/20',
+    accent: 'from-cyan-500/20 to-blue-500/20',
+    border: 'border-cyan-800/50',
+    tagColor: 'bg-cyan-950/50 text-cyan-500 border-cyan-900/50',
+  },
+  {
+    id: 'art-002',
+    title: 'RTEは召喚陣である',
+    excerpt: 'SWCとBSWの間に立ち、ポートとインターフェースを通じてコンポーネントを繋ぐRTE。その仕組みは、術者と世界を繋ぐ召喚陣そのものだ。',
+    tags: ['RTE', 'AUTOSAR', 'アーキテクチャ'],
+    date: '2025-02-03',
+    readTime: '12分',
+    level: '中級',
+    levelColor: 'text-blue-400 border-blue-800/50 bg-blue-950/20',
+    accent: 'from-purple-500/20 to-indigo-500/20',
+    border: 'border-purple-800/50',
+    tagColor: 'bg-purple-950/50 text-purple-400 border-purple-900/50',
+  },
+  {
+    id: 'art-003',
+    title: 'BSWは世界の基盤魔術である',
+    excerpt: 'OSは時を刻む魔術、Comは通信の呪文書、DiagはECUの診断魔導書。Basic Software全体を俯瞰すれば、それは世界の土台を作る基盤魔術の体系だ。',
+    tags: ['BSW', 'AUTOSAR OS', 'システム設計'],
+    date: '2025-03-20',
+    readTime: '15分',
+    level: '上級',
+    levelColor: 'text-amber-400 border-amber-800/50 bg-amber-950/20',
+    accent: 'from-amber-500/20 to-orange-500/20',
+    border: 'border-amber-800/50',
+    tagColor: 'bg-amber-950/50 text-amber-500 border-amber-900/50',
+  },
+];
+---
+
+<section id="articles" class="relative py-32 px-6">
+  <div class="max-w-6xl mx-auto">
+    <!-- Section label -->
+    <div class="flex items-center gap-4 mb-6">
+      <div class="h-px flex-1 bg-gradient-to-r from-transparent to-cyan-800/50"></div>
+      <span class="font-mono text-xs text-cyan-600 tracking-widest px-4">// FEATURED ARTICLES</span>
+      <div class="h-px flex-1 bg-gradient-to-l from-transparent to-cyan-800/50"></div>
+    </div>
+
+    <div class="text-center mb-16">
+      <h2 class="text-3xl md:text-4xl font-serif font-semibold text-white mb-4">
+        魔導書の抜粋
+      </h2>
+      <p class="text-gray-500 text-sm font-mono tracking-wide">Featured entries from the grimoire</p>
+    </div>
+
+    <div class="grid md:grid-cols-3 gap-6">
+      {articles.map(article => (
+        <article class={`group relative border ${article.border} rounded-xl overflow-hidden bg-[#0a0a1f]/80 hover:-translate-y-2 transition-all duration-400 cursor-pointer hover:shadow-2xl`}>
+          <!-- Top gradient bar -->
+          <div class={`h-1 bg-gradient-to-r ${article.accent}`}></div>
+
+          <div class="p-6">
+            <!-- Meta row -->
+            <div class="flex items-center justify-between mb-4">
+              <span class={`text-[10px] font-mono px-2 py-1 rounded border ${article.levelColor}`}>
+                {article.level}
+              </span>
+              <span class="text-gray-600 text-[11px] font-mono">{article.readTime}</span>
+            </div>
+
+            <!-- Article ID -->
+            <div class="font-mono text-[10px] text-gray-700 mb-2">{article.id}</div>
+
+            <!-- Title -->
+            <h3 class="text-white font-serif text-xl font-semibold mb-3 leading-snug group-hover:text-cyan-100 transition-colors">
+              {article.title}
+            </h3>
+
+            <!-- Excerpt -->
+            <p class="text-gray-500 text-sm leading-relaxed mb-5 line-clamp-3">
+              {article.excerpt}
+            </p>
+
+            <!-- Tags -->
+            <div class="flex flex-wrap gap-1.5 mb-5">
+              {article.tags.map(tag => (
+                <span class={`text-[10px] font-mono px-2 py-0.5 rounded border ${article.tagColor}`}>
+                  #{tag}
+                </span>
+              ))}
+            </div>
+
+            <!-- Footer -->
+            <div class="flex items-center justify-between pt-4 border-t border-gray-800/50">
+              <span class="text-gray-600 text-xs font-mono">{article.date}</span>
+              <span class="text-cyan-600 text-xs font-mono group-hover:text-cyan-400 transition-colors">
+                読む →
+              </span>
+            </div>
+          </div>
+
+          <!-- Hover glow effect -->
+          <div class="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none bg-gradient-to-b from-cyan-500/3 to-transparent rounded-xl"></div>
+        </article>
+      ))}
+    </div>
+
+    <div class="text-center mt-12">
+      <a href="#" class="inline-flex items-center gap-2 font-mono text-sm text-cyan-600 hover:text-cyan-400 transition-colors border border-cyan-900/50 hover:border-cyan-700 px-6 py-3 rounded-lg hover:bg-cyan-950/20">
+        <span>全ての記事を詠む</span>
+        <span>→</span>
+      </a>
+    </div>
+  </div>
+</section>

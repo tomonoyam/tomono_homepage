@@ -1,0 +1,125 @@
+---
+const topics = [
+  {
+    id: '01',
+    title: 'AUTOSAR入門',
+    en: 'AUTOSAR Basics',
+    desc: '魔法体系の全体像。AUTOSARとは何か、なぜ存在するのかを紐解く。',
+    icon: '⬡',
+    color: 'cyan',
+  },
+  {
+    id: '02',
+    title: 'CAN通信',
+    en: 'CAN Bus Protocol',
+    desc: 'ECU間を繋ぐ魔法陣の通信路。フレーム構造から調停まで。',
+    icon: '◈',
+    color: 'blue',
+  },
+  {
+    id: '03',
+    title: 'BSW',
+    en: 'Basic Software',
+    desc: '世界の基盤を支える魔術体系。OS、通信、診断の全てを担う。',
+    icon: '◉',
+    color: 'indigo',
+  },
+  {
+    id: '04',
+    title: 'RTE',
+    en: 'Runtime Environment',
+    desc: '術者と世界を繋ぐ召喚陣。SWC間通信の魔法的仕組み。',
+    icon: '⟡',
+    color: 'purple',
+  },
+  {
+    id: '05',
+    title: 'SWC',
+    en: 'Software Component',
+    desc: '個々の術者たち。ポートとインターフェースで繋がる魔法の設計。',
+    icon: '◈',
+    color: 'violet',
+  },
+  {
+    id: '06',
+    title: '診断通信',
+    en: 'Diagnostics (UDS)',
+    desc: '魔法の診断書。UDSプロトコルとDTCで車の状態を読み解く。',
+    icon: '⎔',
+    color: 'amber',
+  },
+  {
+    id: '07',
+    title: '組み込みC',
+    en: 'Embedded C',
+    desc: '術者の言語。MISRA-C、ポインタ、レジスタ操作の極意。',
+    icon: '⟨⟩',
+    color: 'green',
+  },
+  {
+    id: '08',
+    title: '車載ソフト設計',
+    en: 'Automotive SW Design',
+    desc: '魔法陣の設計論。機能安全、リアルタイム性、設計パターン。',
+    icon: '⊕',
+    color: 'teal',
+  },
+];
+
+const colorMap: Record<string, { border: string; bg: string; text: string; glow: string }> = {
+  cyan:   { border: 'border-cyan-800/50',   bg: 'hover:bg-cyan-950/30',   text: 'text-cyan-400',   glow: 'group-hover:shadow-[0_0_20px_rgba(0,212,255,0.1)]' },
+  blue:   { border: 'border-blue-800/50',   bg: 'hover:bg-blue-950/30',   text: 'text-blue-400',   glow: 'group-hover:shadow-[0_0_20px_rgba(59,130,246,0.1)]' },
+  indigo: { border: 'border-indigo-800/50', bg: 'hover:bg-indigo-950/30', text: 'text-indigo-400', glow: 'group-hover:shadow-[0_0_20px_rgba(99,102,241,0.1)]' },
+  purple: { border: 'border-purple-800/50', bg: 'hover:bg-purple-950/30', text: 'text-purple-400', glow: 'group-hover:shadow-[0_0_20px_rgba(168,85,247,0.1)]' },
+  violet: { border: 'border-violet-800/50', bg: 'hover:bg-violet-950/30', text: 'text-violet-400', glow: 'group-hover:shadow-[0_0_20px_rgba(139,92,246,0.1)]' },
+  amber:  { border: 'border-amber-800/50',  bg: 'hover:bg-amber-950/30',  text: 'text-amber-400',  glow: 'group-hover:shadow-[0_0_20px_rgba(245,158,11,0.1)]' },
+  green:  { border: 'border-green-800/50',  bg: 'hover:bg-green-950/30',  text: 'text-green-400',  glow: 'group-hover:shadow-[0_0_20px_rgba(74,222,128,0.1)]' },
+  teal:   { border: 'border-teal-800/50',   bg: 'hover:bg-teal-950/30',   text: 'text-teal-400',   glow: 'group-hover:shadow-[0_0_20px_rgba(45,212,191,0.1)]' },
+};
+---
+
+<section id="topics" class="relative py-32 px-6">
+  <!-- Background accent -->
+  <div class="absolute inset-0 bg-gradient-to-b from-transparent via-[#0a0a1f]/50 to-transparent pointer-events-none"></div>
+
+  <div class="max-w-6xl mx-auto relative">
+    <!-- Section label -->
+    <div class="flex items-center gap-4 mb-6">
+      <div class="h-px flex-1 bg-gradient-to-r from-transparent to-cyan-800/50"></div>
+      <span class="font-mono text-xs text-cyan-600 tracking-widest px-4">// TOPIC INDEX</span>
+      <div class="h-px flex-1 bg-gradient-to-l from-transparent to-cyan-800/50"></div>
+    </div>
+
+    <div class="text-center mb-16">
+      <h2 class="text-3xl md:text-4xl font-serif font-semibold text-white mb-4">
+        魔法体系の索引
+      </h2>
+      <p class="text-gray-500 text-sm font-mono tracking-wide">Topics covered in this grimoire</p>
+    </div>
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {topics.map(topic => {
+        const c = colorMap[topic.color];
+        return (
+          <div class={`group relative border ${c.border} rounded-lg p-5 bg-[#0a0a1f]/60 ${c.bg} ${c.glow} transition-all duration-300 cursor-pointer hover:-translate-y-1`}>
+            <!-- Corner decoration -->
+            <div class="absolute top-0 right-0 w-8 h-8 overflow-hidden">
+              <div class={`absolute -top-4 -right-4 w-8 h-8 border-b border-l ${c.border} rotate-45`}></div>
+            </div>
+
+            <div class={`text-2xl mb-3 ${c.text}`}>{topic.icon}</div>
+            <div class="font-mono text-[10px] text-gray-600 mb-1">#{topic.id} · {topic.en}</div>
+            <h3 class="text-white font-semibold text-base mb-2">{topic.title}</h3>
+            <p class="text-gray-500 text-xs leading-relaxed">{topic.desc}</p>
+
+            <!-- Bottom arrow on hover -->
+            <div class={`mt-4 flex items-center gap-1 text-[11px] font-mono ${c.text} opacity-0 group-hover:opacity-100 transition-opacity`}>
+              <span>詠唱する</span>
+              <span>→</span>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  </div>
+</section>
