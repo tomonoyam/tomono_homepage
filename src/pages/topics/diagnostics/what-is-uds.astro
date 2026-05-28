@@ -1,0 +1,199 @@
+---
+import Page from '../../../layouts/Page.astro';
+import Breadcrumb from '../../../components/Breadcrumb.astro';
+import PageHeader from '../../../components/PageHeader.astro';
+import Prose from '../../../components/Prose.astro';
+import Spell from '../../../components/Spell.astro';
+import CodeBlock from '../../../components/CodeBlock.astro';
+
+const toc = [
+  { id: 'why-uds', label: 'なぜUDSが必要か' },
+  { id: 'session', label: 'セッションという概念' },
+  { id: 'security', label: 'セキュリティアクセス' },
+  { id: 'request-response', label: 'リクエスト/レスポンス構造' },
+  { id: 'transport', label: 'トランスポート: ISO-TP' },
+  { id: 'autosar', label: 'AUTOSARでの実装' },
+  { id: 'summary', label: 'まとめ' },
+];
+---
+
+<Page title="UDSとは何か | AUTOSAR.MAGIC" description="UDS (ISO 14229) の全体像。セッション・セキュリティ・リクエスト/レスポンス構造とISO-TPトランスポート層を入門者向けに解説。">
+  <div class="max-w-5xl mx-auto px-6">
+    <Breadcrumb items={[
+      { label: 'HOME', href: '/' },
+      { label: 'TOPICS', href: '/#topics' },
+      { label: '診断通信', href: '/topics/diagnostics' },
+      { label: 'WHAT IS UDS' },
+    ]} />
+    <PageHeader
+      chapter="DIAG · #01 :: FOUNDATION"
+      title="UDSとは何か"
+      subtitle="診断魔法陣の全体像 — ISO 14229の世界。工場・ディーラー・開発者がECUに問いかけるための、標準化された呪文の体系。"
+      meta="読了時間: 約9分 · レベル: 入門 · 最終更新: 2025-05-28"
+      accent="amber"
+    />
+    <div class="grid lg:grid-cols-[1fr_220px] gap-12">
+      <article>
+        <Prose>
+          <p>
+            車がエラーを示すランプを点灯させたとき、ディーラーの整備士は<strong>スキャンツール</strong>をOBDポートに接続する。ツールはECUに問いかけ、ECUは故障コードを返す。この対話を実現するプロトコルが <strong>UDS (Unified Diagnostic Services)</strong> だ。
+          </p>
+          <p>
+            UDSはISO 14229として標準化されており、<strong>開発・製造・サービス・リコール</strong>のすべての局面でECUと対話するための共通言語となっている。
+          </p>
+
+          <Spell type="spell" label="この記事のゴール">
+            UDSの「セッション・セキュリティ・サービス」という三層構造を理解し、診断ツールがECUとどうやって会話するかを説明できるようになる。
+          </Spell>
+
+          <h2 id="why-uds">なぜUDSが必要か</h2>
+          <p>
+            OBDII (ISO 15031) は排ガス規制に関する故障コードを読むための仕様で、主に北米の規制に起源を持つ。だが車載ECUが担う機能は排ガス管理だけではない。ブレーキ制御、エアバッグ、パワートレイン、ボディ系 — これら固有の診断には、より強力なプロトコルが必要だった。
+          </p>
+          <p>
+            UDSはそのために設計された。<strong>DTC読み書き・生データ読み出し・アクチュエータ制御・フラッシュ書き込み</strong>まで、ECUと深く対話するすべての手段を提供する。
+          </p>
+
+          <table>
+            <thead><tr><th></th><th>OBD-II</th><th>UDS</th></tr></thead>
+            <tbody>
+              <tr><td>規格</td><td>ISO 15031</td><td>ISO 14229</td></td></tr>
+              <tr><td>目的</td><td>排ガス診断(法規準拠)</td><td>汎用ECU診断・開発・生産</td></tr>
+              <tr><td>アクセス制限</td><td>なし(すべて公開)</td><td>セッション・セキュリティで制御</td></tr>
+              <tr><td>フラッシュ書き込み</td><td>❌</td><td>✅</td></tr>
+              <tr><td>アクチュエータ制御</td><td>❌</td><td>✅</td></tr>
+              <tr><td>カスタムDID</td><td>❌</td><td>✅</td></tr>
+            </tbody>
+          </table>
+
+          <h2 id="session">セッションという概念</h2>
+          <p>
+            UDSの鍵概念が<strong>診断セッション</strong>だ。ECUは常に「いずれかのセッション」の中にある。セッションが変わると、使えるサービスが変わる。
+          </p>
+          <ul>
+            <li><strong>Default Session (0x01)</strong>: 通常走行中。基本読み出しのみ。</li>
+            <li><strong>Extended Diagnostic Session (0x03)</strong>: 開発・サービス用。DTC読み出し・アクチュエータ制御・データ書き込みが可能。</li>
+            <li><strong>Programming Session (0x02)</strong>: フラッシュ書き込み専用。ECUリプログラミングはここだけ。</li>
+          </ul>
+
+          <Spell type="contract" label="S3タイマーの契約">
+            Extended/Programming Sessionを維持するには、テスターが定期的に <code>TesterPresent (0x3E)</code> を送り続けなければならない。<strong>S3タイマー (通常5秒)</strong> が満了するとDefault Sessionに戻る。バッテリ切れや通信断絶から守るための安全設計だ。
+          </Spell>
+
+          <h2 id="security">セキュリティアクセス</h2>
+          <p>
+            Extended Sessionに入っただけでは、すべてのサービスは使えない。<strong>SecurityAccess (SID 0x27)</strong> という認証プロセスが必要なサービスがある。
+          </p>
+          <p>
+            仕組みは <strong>Seed/Key方式</strong> だ。
+          </p>
+          <ol>
+            <li>テスターがSeedをリクエスト (0x27 0x01)</li>
+            <li>ECUがランダムな Seed を返す</li>
+            <li>テスターがSeedから<em>秘密のアルゴリズム</em>でKeyを計算し送信 (0x27 0x02)</li>
+            <li>ECUが同じ計算をして照合。一致すれば認証成功</li>
+          </ol>
+
+          <CodeBlock lang="text" title="SecurityAccess シーケンス">
+{`Tester → ECU:  27 01           (Seed Request, SubFunction=0x01)
+ECU → Tester:  67 01 A3 F2 0B  (Seed Response: A3 F2 0B)
+
+Tester → ECU:  27 02 C9 4E 31  (Key: SeedをXOR等で変換した値)
+ECU → Tester:  67 02           (Positive Response: 認証成功)
+
+Tester → ECU:  27 02 FF FF FF  (不正なKey)
+ECU → Tester:  7F 27 35        (NRC 0x35: InvalidKey)
+→ 失敗が続くと Delay が課される (NRC 0x36: ExceededNumberOfAttempts)`}
+          </CodeBlock>
+
+          <h2 id="request-response">リクエスト/レスポンス構造</h2>
+          <p>
+            UDSのメッセージは<strong>リクエスト/レスポンス</strong>のペアで構成される。
+          </p>
+          <table>
+            <thead><tr><th>バイト</th><th>内容</th><th>例</th></tr></thead>
+            <tbody>
+              <tr><td>Byte 0</td><td>SID (Service ID)</td><td><code>0x22</code> (ReadDataByIdentifier)</td></tr>
+              <tr><td>Byte 1〜</td><td>サービス固有データ</td><td><code>F1 90</code> (DID: VIN番号)</td></tr>
+            </tbody>
+          </table>
+          <p>レスポンスのSIDは <code>リクエストSID + 0x40</code> が正常応答のルール。<code>0x22</code> のレスポンスは <code>0x62</code>。</p>
+          <p>エラー時は <strong>Negative Response (0x7F)</strong> が返る。</p>
+
+          <CodeBlock lang="text" title="ReadDataByIdentifier (0x22) の例">
+{`/* VIN番号を読む */
+Request:  22 F1 90
+Response: 62 F1 90 31 47 31 59 53 32 36 38 44 33 52 36 31 39 35 38 32
+                   ←───────────────── VIN: 1GY S268D R619582 ─────────────────────→
+
+/* NRCの例: 存在しないDID */
+Request:  22 FF FF
+Response: 7F 22 31
+          ↑  ↑  ↑
+          |  |  NRC: 0x31 = RequestOutOfRange
+          |  元のSID
+          Negative Response Code`}
+          </CodeBlock>
+
+          <h2 id="transport">トランスポート: ISO-TP</h2>
+          <p>
+            CANの最大ペイロードは8バイト。だがUDSのメッセージはVINだけで17バイト、フラッシュデータになれば数百バイトになる。<strong>ISO 15765-2 (ISO-TP / CAN Transport Protocol)</strong> がこれを解決する。
+          </p>
+          <ul>
+            <li><strong>Single Frame (SF)</strong>: 7バイト以下。1フレームで完結。</li>
+            <li><strong>First Frame (FF) + Consecutive Frames (CF)</strong>: 8バイト以上。複数フレームに分割して送受信。</li>
+            <li><strong>Flow Control (FC)</strong>: 受信側がバッファ状況をフィードバック。送信ペースを制御。</li>
+          </ul>
+          <p>AUTOSARでは <code>CanTp</code> モジュールがISO-TPを実装する。</p>
+
+          <h2 id="autosar">AUTOSARでの実装</h2>
+          <p>AUTOSARのUDS処理は <strong>Dcm (Diagnostic Communication Manager)</strong> が担う。</p>
+          <table>
+            <thead><tr><th>モジュール</th><th>役割</th></tr></thead>
+            <tbody>
+              <tr><td><code>CanTp</code></td><td>ISO-TPの分割・再組み立て</td></tr>
+              <tr><td><code>PduR</code></td><td>PDUのルーティング (Dcm ↔ CanTp)</td></tr>
+              <tr><td><code>Dcm</code></td><td>UDSプロトコル処理・セッション・セキュリティ管理</td></tr>
+              <tr><td><code>Dem</code></td><td>DTC管理 (Dcmと協調)</td></tr>
+            </tbody>
+          </table>
+
+          <Spell type="rune" label="Dcm Callout">
+            Dcmは「標準処理はBSWが、カスタム処理はSWCが担う」設計。SWCはCallout関数を実装し、Dcmから呼ばれる。例: <code>Dcm_ReadDataOfDataElement</code>、<code>Dcm_SecurityAccess</code>。これにより、SeedKeyアルゴリズムなど機密ロジックをSWC内に隠蔽できる。
+          </Spell>
+
+          <h2 id="summary">まとめ</h2>
+          <ul>
+            <li>UDSはISO 14229。開発・製造・サービスのための<strong>汎用ECU診断プロトコル</strong></li>
+            <li>セッション (Default / Extended / Programming) でアクセスレベルを制御</li>
+            <li>SecurityAccess は<strong>Seed/Key方式</strong>による認証</li>
+            <li>リクエスト/レスポンスは <strong>SID + データ</strong>。NRC 0x7Fがエラー応答</li>
+            <li>8バイトを超えるデータは<strong>ISO-TP (CanTp)</strong> が分割・再組み立て</li>
+            <li>AUTOSARでは <strong>Dcm + Dem + CanTp</strong> が連携して実装する</li>
+          </ul>
+          <p>次の記事では、現場で毎日使う<strong>サービスID 15種類</strong>を、フォーマットとともに完全ガイドする。</p>
+        </Prose>
+        <nav class="mt-20 pt-10 border-t border-amber-900/30 flex flex-col sm:flex-row items-stretch gap-3">
+          <a href="/topics/diagnostics" class="flex-1 group border border-amber-900/40 hover:border-amber-700 rounded-lg p-4 transition-colors">
+            <div class="font-mono text-[10px] text-amber-700 tracking-widest mb-1">← 章扉</div>
+            <div class="text-amber-300 group-hover:text-amber-100 transition-colors">診断通信章へ戻る</div>
+          </a>
+          <a href="/topics/diagnostics/service-ids" class="flex-1 group border border-amber-900/40 hover:border-amber-700 rounded-lg p-4 transition-colors text-right">
+            <div class="font-mono text-[10px] text-amber-700 tracking-widest mb-1">NEXT · DIAG.02 →</div>
+            <div class="text-amber-300 group-hover:text-amber-100 transition-colors">サービスID完全ガイド</div>
+          </a>
+        </nav>
+      </article>
+      <aside class="hidden lg:block">
+        <div class="sticky top-28 border-l border-amber-900/40 pl-5">
+          <div class="font-mono text-[10px] text-amber-700 tracking-widest mb-4">// TABLE OF CONTENTS</div>
+          <ul class="space-y-3 text-sm">
+            {toc.map(t => (
+              <li><a href={`#${t.id}`} class="text-gray-500 hover:text-amber-400 transition-colors block leading-snug">{t.label}</a></li>
+            ))}
+          </ul>
+        </div>
+      </aside>
+    </div>
+  </div>
+</Page>

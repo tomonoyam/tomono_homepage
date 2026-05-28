@@ -1,0 +1,186 @@
+---
+import Page from '../../../layouts/Page.astro';
+import Breadcrumb from '../../../components/Breadcrumb.astro';
+import PageHeader from '../../../components/PageHeader.astro';
+import Prose from '../../../components/Prose.astro';
+import Spell from '../../../components/Spell.astro';
+import CodeBlock from '../../../components/CodeBlock.astro';
+
+const toc = [
+  { id: 'definition', label: 'SWCとは何か' },
+  { id: 'three-virtues', label: '三つの美徳' },
+  { id: 'structure', label: 'SWCの構成要素' },
+  { id: 'minimal-swc', label: '最小SWCを書く' },
+  { id: 'constraints', label: '守るべき掟' },
+  { id: 'summary', label: 'まとめ' },
+];
+---
+
+<Page title="SWCとは何か | AUTOSAR.MAGIC" description="AUTOSAR SWCの定義・三つの美徳(独立性・ポータビリティ・テスタビリティ)・最小構成を入門者向けに解説。">
+  <div class="max-w-5xl mx-auto px-6">
+    <Breadcrumb items={[
+      { label: 'HOME', href: '/' },
+      { label: 'TOPICS', href: '/#topics' },
+      { label: 'SWC', href: '/topics/swc' },
+      { label: 'WHAT IS SWC' },
+    ]} />
+    <PageHeader
+      chapter="SWC · #01 :: FOUNDATION"
+      title="SWCとは何か"
+      subtitle="術者の正体 — 独立した呪文の担い手。AUTOSARが「アプリケーション」に与えた形式と、その設計思想を解く。"
+      meta="読了時間: 約8分 · レベル: 入門 · 最終更新: 2025-05-28"
+      accent="purple"
+    />
+    <div class="grid lg:grid-cols-[1fr_220px] gap-12">
+      <article>
+        <Prose>
+          <p>
+            車を走らせる制御ロジック、メータに速度を表示する処理、エアバッグを展開する判断 — これらはすべてソフトウェアが担う。AUTOSARはその<strong>アプリケーションの実装単位</strong>を <span class="font-mono">SWC (Software Component)</span> と呼ぶ。
+          </p>
+          <p>
+            だがSWCはただの「クラス」や「モジュール」ではない。AUTOSARが定める明確な形式と制約を持つ、<em>標準化された部品</em>だ。
+          </p>
+
+          <Spell type="spell" label="この記事のゴール">
+            SWCが「なぜその形式なのか」を設計の論理から理解する。制約を外から押しつけられたルールではなく、<em>必然の結果</em>として捉えられるようになる。
+          </Spell>
+
+          <h2 id="definition">SWCとは何か</h2>
+          <p>
+            AUTOSARの仕様書では、SWCを次のように定義している(意訳)。
+          </p>
+          <blockquote>
+            SWCは、AUTOSAR Runtimeの上で実行される機能的なソフトウェアユニットであり、ポートを通じてのみ外部と通信し、その内部実装はカプセル化される。
+          </blockquote>
+          <p>
+            要するに「<strong>外の世界とはポートだけで話す、独立したプログラムの単位</strong>」だ。何が入ってくるか・何を出すかはインターフェースとして定義される。その中で何をするかは、完全にSWC内部の自由だ。
+          </p>
+
+          <h2 id="three-virtues">三つの美徳</h2>
+          <p>このカプセル化された設計が生む美徳が三つある。</p>
+
+          <h3>① 独立性 (Independence)</h3>
+          <p>
+            SWCはBSWを直接呼ばない。CANを知らない。ADCのレジスタを知らない。<strong>RTEのAPIだけを呼ぶ</strong>。だから、ECUが変わっても、BSWが変わっても、SWCのコードは変わらない。
+          </p>
+
+          <h3>② ポータビリティ (Portability)</h3>
+          <p>
+            独立性の帰結として、SWCは「移植可能」になる。Tier1が開発したエンジン制御SWCを、別のOEMプロジェクトに持ち込んで、RTEを再生成するだけで動かせる — これがAUTOSARの夢だった設計だ。
+          </p>
+
+          <h3>③ テスタビリティ (Testability)</h3>
+          <p>
+            RTEのAPIをモック(偽装実装)に差し替えれば、<strong>実機なしでSWCを単体テストできる</strong>。PC上のx86環境で車両制御ロジックを走らせ、境界値テストを自動化できる(SIL/Software-in-the-Loop)。
+          </p>
+
+          <h2 id="structure">SWCの構成要素</h2>
+          <p>SWCは次の要素から成る。ARXMLで宣言し、Cコードで実装する。</p>
+          <table>
+            <thead><tr><th>要素</th><th>説明</th><th>ARXMLでの定義</th></tr></thead>
+            <tbody>
+              <tr><td><strong>Runnable Entity</strong></td><td>SWCの実行単位。関数の本体。</td><td>InternalBehavior/Runnable</td></tr>
+              <tr><td><strong>RTE Event</strong></td><td>Runnableを起動するトリガー</td><td>TimingEvent / DataReceivedEvent など</td></tr>
+              <tr><td><strong>Port</strong></td><td>外部との通信窓口</td><td>P-PORT / R-PORT</td></tr>
+              <tr><td><strong>Internal State</strong></td><td>SWC内部の状態変数</td><td>InterRunnableVariable</td></tr>
+              <tr><td><strong>Parameter</strong></td><td>キャリブレーション値・定数</td><td>ParameterDataPrototype</td></tr>
+            </tbody>
+          </table>
+
+          <h2 id="minimal-swc">最小SWCを書く</h2>
+          <p>理論より実装を見よう。最小構成のSWCはこうなる。</p>
+
+          <CodeBlock lang="c" title="MinimalSWC.c">
+{`/**
+ * @brief 最小構成のAUTOSAR SWC
+ *
+ * ポート: 1 RPort (SpeedIn) + 1 PPort (DisplayOut)
+ * Runnable: 1本 (10ms周期)
+ * 機能: 受信した車速を単位変換して送出する
+ */
+#include "Rte_MinimalSWC.h"
+
+/* --- Runnable: 10ms周期で呼ばれる --- */
+void MinimalSWC_10ms(void)
+{
+    uint16 rawSpeed;
+    uint16 displayVal;
+
+    /* 車速を受信 (単位: 0.01 km/h) */
+    (void)Rte_Read_SpeedIn_VehicleSpeed(&rawSpeed);
+
+    /* 表示用に変換 (整数 km/h) */
+    displayVal = rawSpeed / 100u;
+
+    /* 表示値を送信 */
+    (void)Rte_Write_DisplayOut_SpeedKmh(displayVal);
+}
+
+/* これだけ。ハードウェアの影は一切ない。 */`}
+          </CodeBlock>
+
+          <p>
+            このSWCがRenesas RH850上で動こうと、Infineon AURIXで動こうと、コードは変わらない。RTEの生成内容が変わるだけだ。
+          </p>
+
+          <h2 id="constraints">守るべき掟</h2>
+          <p>SWCには「やってはいけないこと」がある。守らないと独立性が崩壊する。</p>
+
+          <Spell type="warning" label="SWCの禁忌">
+            <strong>① BSW APIを直接呼ぶ</strong> — <code>Com_SendSignal()</code>、<code>Adc_StartGroupConversion()</code> など。RTEを経由すること。<br/>
+            <strong>② グローバル変数でSWC間通信する</strong> — RTEのS/R/C/S経由のみ。グローバルは競合とデバッグ地獄を生む。<br/>
+            <strong>③ ビジーウェイト・無限ループ</strong> — RunnableはOSタスクの中で動く。詰まるとWatchdog Resetを引き起こす。<br/>
+            <strong>④ 動的メモリ確保 (malloc/free)</strong> — MISRA-Cでも禁止。静的確保のみ。
+          </Spell>
+
+          <CodeBlock lang="c" title="NG例 — やってはいけないコード">
+{`/* ❌ NG: BSWを直接呼んでいる */
+void BadSWC_Run(void)
+{
+    uint16 speed;
+    Com_ReceiveSignal(SIGNAL_ID_SPEED, &speed);  /* ← 直呼び禁止 */
+    Can_Write(CAN_HTH_METER, &pdu);              /* ← 直呼び禁止 */
+}
+
+/* ✅ OK: RTE経由 */
+void GoodSWC_Run(void)
+{
+    uint16 speed;
+    Rte_Read_SpeedIn_VehicleSpeed(&speed);
+    Rte_Write_DisplayOut_SpeedKmh(speed / 100u);
+}`}
+          </CodeBlock>
+
+          <h2 id="summary">まとめ</h2>
+          <ul>
+            <li>SWCは「<strong>ポートだけで外部と話す独立した実装単位</strong>」</li>
+            <li>三つの美徳: <strong>独立性・ポータビリティ・テスタビリティ</strong></li>
+            <li>構成要素: Runnable / RTE Event / Port / Internal State / Parameter</li>
+            <li>BSW直呼び・グローバル通信・無限ループ・動的確保は<strong>禁忌</strong></li>
+          </ul>
+          <p>次の記事では、SWCの種別 — <strong>Atomic SWCとComposition SWC</strong> の違いと、どう使い分けるかを設計視点で語る。</p>
+        </Prose>
+        <nav class="mt-20 pt-10 border-t border-violet-900/30 flex flex-col sm:flex-row items-stretch gap-3">
+          <a href="/topics/swc" class="flex-1 group border border-violet-900/40 hover:border-violet-700 rounded-lg p-4 transition-colors">
+            <div class="font-mono text-[10px] text-violet-700 tracking-widest mb-1">← 章扉</div>
+            <div class="text-violet-300 group-hover:text-violet-100 transition-colors">SWC章へ戻る</div>
+          </a>
+          <a href="/topics/swc/atomic-and-composition" class="flex-1 group border border-violet-900/40 hover:border-violet-700 rounded-lg p-4 transition-colors text-right">
+            <div class="font-mono text-[10px] text-violet-700 tracking-widest mb-1">NEXT · SWC.02 →</div>
+            <div class="text-violet-300 group-hover:text-violet-100 transition-colors">Atomic と Composition</div>
+          </a>
+        </nav>
+      </article>
+      <aside class="hidden lg:block">
+        <div class="sticky top-28 border-l border-violet-900/40 pl-5">
+          <div class="font-mono text-[10px] text-violet-700 tracking-widest mb-4">// TABLE OF CONTENTS</div>
+          <ul class="space-y-3 text-sm">
+            {toc.map(t => (
+              <li><a href={`#${t.id}`} class="text-gray-500 hover:text-violet-400 transition-colors block leading-snug">{t.label}</a></li>
+            ))}
+          </ul>
+        </div>
+      </aside>
+    </div>
+  </div>
+</Page>

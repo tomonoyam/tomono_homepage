@@ -1,0 +1,252 @@
+---
+import Page from '../../../layouts/Page.astro';
+import Breadcrumb from '../../../components/Breadcrumb.astro';
+import PageHeader from '../../../components/PageHeader.astro';
+import Prose from '../../../components/Prose.astro';
+import Spell from '../../../components/Spell.astro';
+import CodeBlock from '../../../components/CodeBlock.astro';
+
+const toc = [
+  { id: 'dtc-structure', label: 'DTCの構造' },
+  { id: 'status-byte', label: 'ステータスバイト 8ビット' },
+  { id: 'snapshot', label: 'フリーズフレーム' },
+  { id: 'dem', label: 'AUTOSARのDem' },
+  { id: 'event', label: 'DemEvent — 故障の通知' },
+  { id: 'debounce', label: 'デバウンス処理' },
+  { id: 'summary', label: 'まとめ' },
+];
+
+const statusBits = [
+  { bit: 0, name: 'testFailed (TF)',                short: 'TF',  desc: '現在の診断テストが失敗している', color: 'text-red-400' },
+  { bit: 1, name: 'testFailedThisMonitoringCycle',  short: 'TFTMC', desc: '今の監視サイクルで一度でも失敗した', color: 'text-orange-400' },
+  { bit: 2, name: 'pendingDTC',                     short: 'PDTC', desc: '今の/前の監視サイクルで失敗 (確定前)', color: 'text-amber-400' },
+  { bit: 3, name: 'confirmedDTC',                   short: 'CDTC', desc: '確定済みDTC。サービスで見える主役', color: 'text-yellow-400' },
+  { bit: 4, name: 'testNotCompletedSinceLastClear', short: 'TNCSLC', desc: '最後のDTC消去以降、テスト未完了', color: 'text-gray-400' },
+  { bit: 5, name: 'testFailedSinceLastClear',       short: 'TFSLC', desc: '最後の消去以降に一度でも失敗した', color: 'text-gray-400' },
+  { bit: 6, name: 'testNotCompletedThisMonitoringCycle', short: 'TNCTMC', desc: '今の監視サイクルでテスト未完了', color: 'text-gray-400' },
+  { bit: 7, name: 'warningIndicatorRequested',      short: 'WIR', desc: 'MIL (警告灯) 点灯要求', color: 'text-blue-400' },
+];
+---
+
+<Page title="DTC — 故障コードの魔術 | AUTOSAR.MAGIC" description="DTC (Diagnostic Trouble Code) の構造・ステータスバイト8ビット・フリーズフレーム・AUTOSAR Demモジュールの仕組みを解説。">
+  <div class="max-w-5xl mx-auto px-6">
+    <Breadcrumb items={[
+      { label: 'HOME', href: '/' },
+      { label: 'TOPICS', href: '/#topics' },
+      { label: '診断通信', href: '/topics/diagnostics' },
+      { label: 'DTC' },
+    ]} />
+    <PageHeader
+      chapter="DIAG · #03 :: DTC & DEM"
+      title="DTC — 故障コードの魔術"
+      subtitle="診断書の読み方 — DTCとDemの世界。ECUが刻む故障の記録は、いつ・どんな状態で・何が起きたかを雄弁に語る。"
+      meta="読了時間: 約14分 · レベル: 中級 · 最終更新: 2025-05-28"
+      accent="amber"
+    />
+    <div class="grid lg:grid-cols-[1fr_220px] gap-12">
+      <article>
+        <Prose>
+          <p>
+            「P0300: ランダム/多重気筒失火検出」— スキャンツールに表示されるこの数字が <strong>DTC (Diagnostic Trouble Code)</strong> だ。だがDTCはただの故障番号ではない。<em>いつ発生したか・今も続いているか・どんな状況で起きたか</em>を記録した多次元の診断情報だ。
+          </p>
+          <p>
+            本記事ではDTCの内部構造と、AUTOSARがDTCを管理する <strong>Dem (Diagnostic Event Manager)</strong> の仕組みを解剖する。
+          </p>
+
+          <h2 id="dtc-structure">DTCの構造</h2>
+          <p>DTCは3バイトの数値だ。ISO 14229ではこの構造を定めている。</p>
+          <table>
+            <thead><tr><th>バイト</th><th>内容</th><th>例</th></tr></thead>
+            <tbody>
+              <tr><td>Byte 0</td><td>High byte (System prefix + 6bit数値)</td><td><code>0x00</code></td></tr>
+              <tr><td>Byte 1</td><td>Mid byte</td><td><code>0xAB</code></td></tr>
+              <tr><td>Byte 2</td><td>Low byte</td><td><code>0x12</code></td></tr>
+            </tbody>
+          </table>
+          <p>
+            表示形式としては OBD スタイル (<code>P0300</code>) と ISO 14229スタイル (<code>0x00AB12</code>) の両方がある。AUTOSAR Dem は内部的に3バイト整数で管理する。
+          </p>
+
+          <h2 id="status-byte">ステータスバイト — 8ビットの診断情報</h2>
+          <p>
+            DTCには必ず<strong>ステータスバイト</strong>が付随する。8ビット各1ビットが、故障の「今の状態」を示す。この8ビットを読めると、<em>「今も壊れているか」「過去に壊れたか」「警告灯が点くべきか」</em>まで一目でわかる。
+          </p>
+        </Prose>
+
+        <!-- Status bits visual -->
+        <div class="my-8 border border-amber-900/40 rounded-xl bg-[#06060f]/80 p-6">
+          <div class="font-mono text-[10px] text-amber-600 tracking-widest mb-6">// DTC STATUS BYTE — 8 BITS</div>
+          <div class="flex gap-1 mb-4 font-mono">
+            {statusBits.slice().reverse().map(b => (
+              <div class={`flex-1 border rounded py-2 text-center text-[9px] ${b.color} border-current/30 bg-current/5`}>
+                <div class="font-bold">{b.short}</div>
+                <div class="opacity-50 mt-0.5">bit{b.bit}</div>
+              </div>
+            ))}
+          </div>
+          <div class="space-y-2 mt-4">
+            {statusBits.map(b => (
+              <div class="flex items-start gap-3 text-xs">
+                <span class={`font-mono font-bold shrink-0 w-14 ${b.color}`}>bit{b.bit}</span>
+                <span class="text-gray-600 shrink-0 w-14">{b.short}</span>
+                <span class="text-gray-400">{b.desc}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <Prose>
+          <CodeBlock lang="text" title="ステータスバイトの読み方 (例: 0x29 = 0b0010_1001)">
+{`ステータス値: 0x29 = 0b0010_1001
+
+bit0 (TF)   = 1 → 現在テスト失敗中 (故障継続中)
+bit1 (TFTMC)= 0
+bit2 (PDTC) = 0
+bit3 (CDTC) = 1 → 確定DTC (スキャンツールで見える)
+bit4 (TNCSLC)=0
+bit5 (TFSLC)= 1 → 前回消去以降に一度失敗あり
+bit6        = 0
+bit7 (WIR)  = 0 → 警告灯OFF
+
+読み: 「現在も故障が継続しており、確定DTCとして記録されている。警告灯は出ていない。」`}
+          </CodeBlock>
+
+          <h2 id="snapshot">フリーズフレーム (Freeze Frame / Extended Data)</h2>
+          <p>
+            DTCが記録されるとき、同時に「そのときのECUの状態」を一緒に保存できる。これが<strong>フリーズフレーム</strong>だ。
+          </p>
+          <ul>
+            <li><strong>SnapshotData</strong>: DTC発生時点の各種センサ値・制御値のスナップショット</li>
+            <li><strong>ExtendedData</strong>: 発生回数(OccurrenceCounter)・老化カウンタ(AgingCounter)など統計情報</li>
+          </ul>
+
+          <CodeBlock lang="text" title="ReadDTCInformation → SnapshotData 読み出し">
+{`/* 0x19 04: DTC Snapshot Record by DTC Number */
+Request:  19 04 00 AB 12 FF
+Response: 59 04                       (ResponseSID)
+          00 AB 12                    (DTC)
+          29                          (StatusByte = 0x29)
+          01                          (SnapshotRecord#01)
+          04                          (データ数: 4項目)
+          F4 0F 01 00                 (VehicleSpeed DID: 271 = 2.71 km/h)
+          F4 0C 0B B8                 (EngineRPM DID: 3000 rpm)
+          F4 0E 50                    (ThrottlePosition: 80%)
+          F4 07 00 00 00 E8           (OdometerValue: 232 km)`}
+          </CodeBlock>
+
+          <p>
+            フリーズフレームは「故障時の現場記録」だ。「なぜ壊れたか」を追う最強の手がかりになる。
+          </p>
+
+          <h2 id="dem">AUTOSARのDem</h2>
+          <p>
+            AUTOSARでDTCを管理するのが <strong>Dem (Diagnostic Event Manager)</strong> だ。Demはいくつかの重要な責務を持つ。
+          </p>
+          <table>
+            <thead><tr><th>責務</th><th>内容</th></tr></thead>
+            <tbody>
+              <tr><td>イベント受付</td><td>SWCや他BSWモジュールからの故障報告を受け取る</td></tr>
+              <tr><td>デバウンス</td><td>一時的なノイズを故障と誤判定しないためのフィルタリング</td></tr>
+              <tr><td>DTC確定ロジック</td><td>何回の失敗で確定DTCにするか。各イベントごとに設定可能</td></tr>
+              <tr><td>SnapshotData記録</td><td>確定時の環境データを保存</td></tr>
+              <tr><td>NvM管理</td><td>電源OFF後もDTCが消えないようNvMへ保存</td></tr>
+              <tr><td>MIL制御</td><td>警告灯(WIR bit)の管理</td></tr>
+              <tr><td>Dcm I/F</td><td>UDS 0x19 ReadDTCによる外部読み出しに応答</td></tr>
+            </tbody>
+          </table>
+
+          <h2 id="event">DemEvent — 故障の通知方法</h2>
+          <p>
+            SWCがDemに故障を報告するには <strong>DemEvent</strong> を使う。各故障は事前に <code>DemEventId</code> として定義され、SWCはそのIDで報告する。
+          </p>
+
+          <CodeBlock lang="c" title="SWCからDemへの故障報告">
+{`#include "Dem.h"
+
+void SpeedSensor_10ms(void)
+{
+    uint16 raw;
+    Std_ReturnType sensorRet;
+
+    sensorRet = ReadSpeedSensor(&raw);
+
+    if (sensorRet == E_OK && raw < SPEED_SENSOR_MIN) {
+        /* 故障検出: センサ値が下限以下 */
+        Dem_SetEventStatus(
+            DemConf_DemEventParameter_SpeedSensorShortToGround,
+            DEM_EVENT_STATUS_FAILED   /* FAILED | PASSED | PREPASSED | PREFAILED */
+        );
+    } else {
+        /* 正常 */
+        Dem_SetEventStatus(
+            DemConf_DemEventParameter_SpeedSensorShortToGround,
+            DEM_EVENT_STATUS_PASSED
+        );
+    }
+}`}
+          </CodeBlock>
+
+          <h2 id="debounce">デバウンス処理</h2>
+          <p>
+            センサノイズで瞬間的にFAILEDになっても、<strong>すぐにDTCを確定させては困る</strong>。Demのデバウンス機能がこれを防ぐ。
+          </p>
+          <p>AUTOSARのDemは2種類のデバウンスを持つ。</p>
+          <ul>
+            <li>
+              <strong>Counter-Based Debounce</strong>: FAILEDが連続でN回→確定。PASSEDが連続でM回→回復。カウンタ方式。
+            </li>
+            <li>
+              <strong>Time-Based Debounce</strong>: FAILED状態がT秒継続→確定。PASSED状態がU秒継続→回復。時間方式。
+            </li>
+          </ul>
+
+          <CodeBlock lang="text" title="Counter-Based デバウンスの動作例">
+{`設定: FailedThreshold=3, PassedThreshold=5
+
+イベント列: F F F P F P F F F ... → DTC確定 (3連続FAILED)
+            P P P P P           → DTC回復 (5連続PASSED)
+
+デバウンス値の推移(0が健全、+10が閾値):
+ 0 → +3 → +6 → +9 [FAILED] → Confirm DTC (3回で確定)
+ → -3 → -6 → -9 → -12 → -15 [PASSED=5回] → Heal DTC`}
+          </CodeBlock>
+
+          <Spell type="contract" label="デバウンスの設計判断">
+            閾値が低すぎると、ノイズで誤DTC → 顧客クレーム。高すぎると、本物の故障を見逃す → 重大事故。<em>センサの特性・故障モードの危険度・現場ノイズレベル</em>を考慮して設定する。機能安全要件がある場合、閾値設計はHAZOPやFMEAの結果から決まる。
+          </Spell>
+
+          <h2 id="summary">まとめ</h2>
+          <ul>
+            <li>DTCは3バイトの故障コード。常に<strong>ステータスバイト(8bit)</strong>と一緒に管理される</li>
+            <li>ステータスの主役は <strong>bit0 TF</strong>(現在故障) と <strong>bit3 CDTC</strong>(確定済み)</li>
+            <li><strong>フリーズフレーム</strong>が故障時の状況を記録。デバッグに不可欠</li>
+            <li>AUTOSARの <strong>Dem</strong> がデバウンス・確定・NvM保存・MIL制御を一手に担う</li>
+            <li>SWCからは <code>Dem_SetEventStatus(EventId, FAILED/PASSED)</code> の2択で報告する</li>
+          </ul>
+          <p>診断通信章はここまで。ECUの「言葉」であるUDS・DTC・Demの三角形が掴めたはずだ。次は<strong>AUTOSAR入門章</strong>で全体像を俯瞰しよう。</p>
+        </Prose>
+
+        <nav class="mt-20 pt-10 border-t border-amber-900/30 flex flex-col sm:flex-row items-stretch gap-3">
+          <a href="/topics/diagnostics/service-ids" class="flex-1 group border border-amber-900/40 hover:border-amber-700 rounded-lg p-4 transition-colors">
+            <div class="font-mono text-[10px] text-amber-700 tracking-widest mb-1">← PREV · DIAG.02</div>
+            <div class="text-amber-300 group-hover:text-amber-100 transition-colors">サービスID完全ガイド</div>
+          </a>
+          <a href="/topics/diagnostics" class="flex-1 group border border-amber-900/40 hover:border-amber-700 rounded-lg p-4 transition-colors text-right">
+            <div class="font-mono text-[10px] text-amber-700 tracking-widest mb-1">章扉 →</div>
+            <div class="text-amber-300 group-hover:text-amber-100 transition-colors">診断通信章へ戻る</div>
+          </a>
+        </nav>
+      </article>
+      <aside class="hidden lg:block">
+        <div class="sticky top-28 border-l border-amber-900/40 pl-5">
+          <div class="font-mono text-[10px] text-amber-700 tracking-widest mb-4">// TABLE OF CONTENTS</div>
+          <ul class="space-y-3 text-sm">
+            {toc.map(t => (
+              <li><a href={`#${t.id}`} class="text-gray-500 hover:text-amber-400 transition-colors block leading-snug">{t.label}</a></li>
+            ))}
+          </ul>
+        </div>
+      </aside>
+    </div>
+  </div>
+</Page>

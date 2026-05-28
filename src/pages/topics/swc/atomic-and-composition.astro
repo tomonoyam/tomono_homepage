@@ -1,0 +1,227 @@
+---
+import Page from '../../../layouts/Page.astro';
+import Breadcrumb from '../../../components/Breadcrumb.astro';
+import PageHeader from '../../../components/PageHeader.astro';
+import Prose from '../../../components/Prose.astro';
+import Spell from '../../../components/Spell.astro';
+import CodeBlock from '../../../components/CodeBlock.astro';
+
+const toc = [
+  { id: 'atomic', label: 'Atomic SWC — 最小の術者' },
+  { id: 'composition', label: 'Composition SWC — 部族の器' },
+  { id: 'why-compose', label: 'なぜCompositionが必要か' },
+  { id: 'delegation', label: 'Delegation Connectorの役割' },
+  { id: 'example', label: '実例: エンジン制御システム' },
+  { id: 'summary', label: 'まとめ' },
+];
+---
+
+<Page title="Atomic と Composition SWC | AUTOSAR.MAGIC" description="AUTOSAR SWCの種別。Atomic SWCとComposition SWCの違い・設計判断・Delegation Connectorの役割を解説。">
+  <div class="max-w-5xl mx-auto px-6">
+    <Breadcrumb items={[
+      { label: 'HOME', href: '/' },
+      { label: 'TOPICS', href: '/#topics' },
+      { label: 'SWC', href: '/topics/swc' },
+      { label: 'ATOMIC & COMPOSITION' },
+    ]} />
+    <PageHeader
+      chapter="SWC · #02 :: ARCHITECTURE"
+      title="Atomic と Composition"
+      subtitle="術者の分類 — 個と集合の設計。最小単位のAtomicと、複数を束ねるCompositionの二層構造が、スケーラブルな車載ソフト設計を支える。"
+      meta="読了時間: 約12分 · レベル: 中級 · 最終更新: 2025-05-28"
+      accent="purple"
+    />
+    <div class="grid lg:grid-cols-[1fr_220px] gap-12">
+      <article>
+        <Prose>
+          <p>
+            AUTOSARのSWCには階層がある。個々の術者(Atomic SWC)と、彼らを束ねる部族の器(Composition SWC)だ。この二層構造が、大規模な車載ソフト開発を可能にする。
+          </p>
+
+          <h2 id="atomic">Atomic SWC — 最小の術者</h2>
+          <p>
+            <strong>Atomic SWC</strong> は、それ以上分解できない実装単位だ。一つ以上のRunnable Entityを持ち、ポートを通じて通信し、RTEによってスケジューリングされる。
+          </p>
+          <p>
+            「Atomic」は「原子」— 分割不能の最小粒子という意味だ。実際のCコードを書くのは、常にこの Atomic SWCに対してだ。
+          </p>
+
+          <!-- Atomic SWC diagram -->
+          <div class="not-prose my-8 border border-violet-900/40 rounded-xl bg-[#06060f]/80 p-6">
+            <div class="font-mono text-[10px] text-violet-600 tracking-widest mb-6">// ATOMIC SWC STRUCTURE</div>
+            <div class="flex items-center justify-center gap-6 flex-wrap">
+              <div class="text-center">
+                <div class="font-mono text-xs text-gray-500 mb-2">External</div>
+                <div class="space-y-2">
+                  <div class="border border-cyan-700/50 rounded px-3 py-1.5 text-cyan-400 font-mono text-xs">SpeedIn (RPort)</div>
+                  <div class="border border-cyan-700/50 rounded px-3 py-1.5 text-cyan-400 font-mono text-xs">ThrottleIn (RPort)</div>
+                </div>
+              </div>
+              <div class="text-violet-500 text-2xl">→</div>
+              <div class="border border-violet-700/60 rounded-xl bg-violet-950/30 p-5 text-center min-w-[160px]">
+                <div class="text-violet-300 font-serif font-bold mb-3">SpeedControlSWC</div>
+                <div class="space-y-1.5 font-mono text-[10px]">
+                  <div class="border border-violet-800/50 rounded px-2 py-1 text-violet-400">Init Runnable</div>
+                  <div class="border border-violet-800/50 rounded px-2 py-1 text-violet-400">10ms Runnable</div>
+                  <div class="border border-violet-800/50 rounded px-2 py-1 text-violet-400">DataRx Runnable</div>
+                </div>
+              </div>
+              <div class="text-violet-500 text-2xl">→</div>
+              <div class="text-center">
+                <div class="font-mono text-xs text-gray-500 mb-2">External</div>
+                <div class="space-y-2">
+                  <div class="border border-purple-700/50 rounded px-3 py-1.5 text-purple-400 font-mono text-xs">FuelOut (PPort)</div>
+                  <div class="border border-purple-700/50 rounded px-3 py-1.5 text-purple-400 font-mono text-xs">DiagOut (PPort)</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <h2 id="composition">Composition SWC — 部族の器</h2>
+          <p>
+            <strong>Composition SWC</strong> は、複数のSWC(AtomicまたはComposition)を一つの論理的な単位としてまとめる<em>コンテナ</em>だ。自身はRunnableを持たない。持つのは「内部に何が入っているか」という構造定義と、外部へのポートだ。
+          </p>
+          <p>
+            Compositionの外から見ると、内部に何のSWCが入っているかはわからない。外部との通信は<strong>Delegation Connector</strong>を通じて内部のSWCへ委譲される。
+          </p>
+
+          <h2 id="why-compose">なぜCompositionが必要か</h2>
+          <p>Compositionには三つの強力な動機がある。</p>
+
+          <h3>① 供給者(Tier1)による部品化</h3>
+          <p>
+            BoschがエンジンマネジメントシステムをCompositionとして提供する場合を考えよう。OEMには「外部ポートのインターフェース」だけを公開し、内部の実装(固有ノウハウ)は隠蔽できる。<strong>ブラックボックスとして納入できる</strong>。
+          </p>
+
+          <h3>② 開発チームによる分割</h3>
+          <p>
+            大規模プロジェクトでは、チームごとに担当SWCを分割する。Compositionを単位として「このCompositionはAチーム担当」と境界を引くことで、<strong>インターフェースさえ合意すれば並行開発できる</strong>。
+          </p>
+
+          <h3>③ 再利用の粒度調整</h3>
+          <p>
+            Atomicが細かすぎると、接続設定が爆発する。Compositionでまとめることで、再利用の単位を「ちょうどいい大きさ」に調整できる。
+          </p>
+
+          <h2 id="delegation">Delegation Connectorの役割</h2>
+          <p>
+            CompositionのポートとAtomicのポートを繋ぐのが <strong>Delegation Connector</strong> だ。外部から見た「CompositionのRPort」が、内部の「AtomicのRPort」に委譲される。
+          </p>
+
+          <CodeBlock lang="xml" title="ARXML — Delegation Connector の例">
+{`<!-- Composition SWC: EngineControlSystem -->
+<COMPOSITION-SW-COMPONENT-TYPE>
+  <SHORT-NAME>EngineControlSystem</SHORT-NAME>
+
+  <!-- 外部RPort: 車速入力 -->
+  <PORTS>
+    <R-PORT-PROTOTYPE>
+      <SHORT-NAME>SpeedIn_Ext</SHORT-NAME>
+      <REQUIRED-INTERFACE-TREF>.../VehicleSpeedInterface</REQUIRED-INTERFACE-TREF>
+    </R-PORT-PROTOTYPE>
+  </PORTS>
+
+  <!-- 内部のSpeedControlSWCと繋ぐ Delegation Connector -->
+  <CONNECTORS>
+    <DELEGATION-SW-CONNECTOR>
+      <SHORT-NAME>SpeedDelegation</SHORT-NAME>
+      <!-- 外部ポート (Composition) -->
+      <OUTER-PORT-REF>SpeedIn_Ext</OUTER-PORT-REF>
+      <!-- 内部ポート (Atomic SWC) -->
+      <INNER-PORT-IREF>
+        <CONTEXT-COMPONENT-REF>.../SpeedControlSWC</CONTEXT-COMPONENT-REF>
+        <TARGET-R-PORT-REF>.../SpeedIn</TARGET-R-PORT-REF>
+      </INNER-PORT-IREF>
+    </DELEGATION-SW-CONNECTOR>
+  </CONNECTORS>
+</COMPOSITION-SW-COMPONENT-TYPE>`}
+          </CodeBlock>
+
+          <h2 id="example">実例: エンジン制御システム</h2>
+          <p>実際の設計を想定した構成例を見てみよう。</p>
+        </Prose>
+
+        <!-- Large architecture diagram -->
+        <div class="my-10 border border-violet-900/40 rounded-xl bg-[#06060f]/80 p-6 overflow-x-auto">
+          <div class="font-mono text-[10px] text-violet-600 tracking-widest mb-6">// ENGINE CONTROL SYSTEM — COMPOSITION EXAMPLE</div>
+          <div class="min-w-[560px]">
+            <!-- Outer Composition border -->
+            <div class="border-2 border-dashed border-violet-700/40 rounded-xl p-5 relative">
+              <div class="absolute -top-3 left-4 bg-[#06060f] px-3 font-mono text-[10px] text-violet-500">Composition: EngineControlSystem</div>
+
+              <!-- Inner Atomics -->
+              <div class="grid grid-cols-3 gap-4 mb-4">
+                {[
+                  { name: 'FuelInjectionSWC', runnables: ['Init', '1ms'], color: 'border-cyan-700/60 bg-cyan-950/30 text-cyan-300' },
+                  { name: 'IgnitionTimingSWC', runnables: ['Init', '2ms'], color: 'border-blue-700/60 bg-blue-950/30 text-blue-300' },
+                  { name: 'IdleControlSWC',   runnables: ['Init', '10ms'], color: 'border-indigo-700/60 bg-indigo-950/30 text-indigo-300' },
+                ].map(swc => (
+                  <div class={`border rounded-lg p-3 ${swc.color}`}>
+                    <div class="font-mono text-[10px] font-bold mb-2 text-center">{swc.name}</div>
+                    {swc.runnables.map(r => (
+                      <div class="font-mono text-[9px] text-center opacity-60">{r}</div>
+                    ))}
+                  </div>
+                ))}
+              </div>
+
+              <!-- Internal connectors -->
+              <div class="text-center font-mono text-[9px] text-gray-600 mb-4">⟷ Assembly Connector (内部接続) ⟷</div>
+
+              <!-- External ports via Delegation -->
+              <div class="flex justify-between font-mono text-[10px]">
+                <div class="space-y-1.5">
+                  <div class="border border-gray-700/50 rounded px-2 py-1 text-gray-400">◀ SpeedIn (Delegation→Fuel)</div>
+                  <div class="border border-gray-700/50 rounded px-2 py-1 text-gray-400">◀ LoadIn (Delegation→Ignition)</div>
+                </div>
+                <div class="space-y-1.5 text-right">
+                  <div class="border border-gray-700/50 rounded px-2 py-1 text-gray-400">FuelCmd ▶ (Delegation←Fuel)</div>
+                  <div class="border border-gray-700/50 rounded px-2 py-1 text-gray-400">IgnCmd ▶ (Delegation←Ignition)</div>
+                </div>
+              </div>
+            </div>
+            <div class="text-center font-mono text-[9px] text-gray-600 mt-3">OEMからはCompositionの外部ポートだけが見える · 内部SWCはTier1の実装ノウハウ</div>
+          </div>
+        </div>
+
+        <Prose>
+          <Spell type="rune" label="設計の判断基準">
+            <strong>Atomicにする</strong>: 一つの明確な責務を持つ最小単位。単体テスト可能な粒度。<br/>
+            <strong>Compositionにする</strong>: サプライヤ部品の境界、チーム分割の境界、再利用の単位として意味がある場合。<br/>
+            <em>Compositionを深くネストしすぎると可読性が落ちる。3層以内を目安にする現場が多い。</em>
+          </Spell>
+
+          <h2 id="summary">まとめ</h2>
+          <ul>
+            <li><strong>Atomic SWC</strong>: 実装を持つ最小単位。Runnableを持つ。Cコードを書くのはここだけ。</li>
+            <li><strong>Composition SWC</strong>: コンテナ。Runnableを持たず、内部SWCを束ねる。</li>
+            <li>Compositionの外部ポートと内部ポートを繋ぐのが<strong>Delegation Connector</strong></li>
+            <li>Compositionは<strong>ブラックボックス部品化・チーム分割・再利用粒度調整</strong>に使う</li>
+          </ul>
+          <p>次の記事では、SWCの実行を制御する <strong>Runnable と RTE Event</strong> の仕組みを深掘りする。「いつ、誰が、どんな条件でRunnableを呼ぶのか」を詳細に解剖しよう。</p>
+        </Prose>
+
+        <nav class="mt-20 pt-10 border-t border-violet-900/30 flex flex-col sm:flex-row items-stretch gap-3">
+          <a href="/topics/swc/what-is-swc" class="flex-1 group border border-violet-900/40 hover:border-violet-700 rounded-lg p-4 transition-colors">
+            <div class="font-mono text-[10px] text-violet-700 tracking-widest mb-1">← PREV · SWC.01</div>
+            <div class="text-violet-300 group-hover:text-violet-100 transition-colors">SWCとは何か</div>
+          </a>
+          <a href="/topics/swc/runnable-and-event" class="flex-1 group border border-violet-900/40 hover:border-violet-700 rounded-lg p-4 transition-colors text-right">
+            <div class="font-mono text-[10px] text-violet-700 tracking-widest mb-1">NEXT · SWC.03 →</div>
+            <div class="text-violet-300 group-hover:text-violet-100 transition-colors">Runnable とイベント</div>
+          </a>
+        </nav>
+      </article>
+      <aside class="hidden lg:block">
+        <div class="sticky top-28 border-l border-violet-900/40 pl-5">
+          <div class="font-mono text-[10px] text-violet-700 tracking-widest mb-4">// TABLE OF CONTENTS</div>
+          <ul class="space-y-3 text-sm">
+            {toc.map(t => (
+              <li><a href={`#${t.id}`} class="text-gray-500 hover:text-violet-400 transition-colors block leading-snug">{t.label}</a></li>
+            ))}
+          </ul>
+        </div>
+      </aside>
+    </div>
+  </div>
+</Page>

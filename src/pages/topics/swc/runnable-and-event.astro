@@ -1,0 +1,246 @@
+---
+import Page from '../../../layouts/Page.astro';
+import Breadcrumb from '../../../components/Breadcrumb.astro';
+import PageHeader from '../../../components/PageHeader.astro';
+import Prose from '../../../components/Prose.astro';
+import Spell from '../../../components/Spell.astro';
+import CodeBlock from '../../../components/CodeBlock.astro';
+
+const toc = [
+  { id: 'runnable', label: 'Runnable Entity とは' },
+  { id: 'events', label: 'RTE Event の種類' },
+  { id: 'timing', label: 'TimingEvent — 周期実行' },
+  { id: 'data-rx', label: 'DataReceivedEvent — データ駆動' },
+  { id: 'wcet', label: 'WCET と最悪応答時間' },
+  { id: 'inter-runnable', label: 'Inter-Runnable Variable' },
+  { id: 'summary', label: 'まとめ' },
+];
+
+const events = [
+  { name: 'InitEvent',                trigger: 'ECU起動時 (RTE_START後)',  use: 'バッファ初期化・NvM読み込み',       color: 'text-green-400 border-green-700/50' },
+  { name: 'TimingEvent',              trigger: '設定した周期 (ms)',          use: '定周期センサ処理・制御ループ',      color: 'text-cyan-400 border-cyan-700/50' },
+  { name: 'DataReceivedEvent',        trigger: 'S/R Portにデータが届いた',  use: 'CAN受信・イベント駆動処理',          color: 'text-blue-400 border-blue-700/50' },
+  { name: 'DataReceivedErrorEvent',   trigger: '受信タイムアウト検出',      use: '通信途絶への対処',                  color: 'text-amber-400 border-amber-700/50' },
+  { name: 'BackgroundEvent',          trigger: 'OSアイドル時',              use: '低優先度のバックグラウンド処理',    color: 'text-gray-400 border-gray-700/50' },
+  { name: 'SwcModeSwitchEvent',       trigger: 'モード遷移発生',            use: 'EcuMモード・BswMモードへの追従',   color: 'text-purple-400 border-purple-700/50' },
+  { name: 'ExternalTriggerOccurred', trigger: '外部トリガー (ISR連携)',    use: 'ハードウェアイベント連携',          color: 'text-violet-400 border-violet-700/50' },
+];
+---
+
+<Page title="Runnable とイベント | AUTOSAR.MAGIC" description="AUTOSAR SWCのRunnable EntityとRTE Event。TimingEvent・DataReceivedEvent・WCETと最悪応答時間を解説。">
+  <div class="max-w-5xl mx-auto px-6">
+    <Breadcrumb items={[
+      { label: 'HOME', href: '/' },
+      { label: 'TOPICS', href: '/#topics' },
+      { label: 'SWC', href: '/topics/swc' },
+      { label: 'RUNNABLE & EVENT' },
+    ]} />
+    <PageHeader
+      chapter="SWC · #03 :: EXECUTION"
+      title="Runnable とイベント"
+      subtitle="詠唱の引き金 — いつ、誰が呼ぶのか。SWCの実行単位Runnableとそれを起動するRTE Eventの仕組みを、スケジューリングの深淵まで追う。"
+      meta="読了時間: 約14分 · レベル: 中級 · 最終更新: 2025-05-28"
+      accent="purple"
+    />
+    <div class="grid lg:grid-cols-[1fr_220px] gap-12">
+      <article>
+        <Prose>
+          <p>
+            SWCのコードは「関数」として書くが、<strong>誰がいつ呼ぶかはSWC自身が決めない</strong>。それを決めるのがARXMLで宣言する <strong>RTE Event</strong> と、それに結び付けられた <strong>Runnable Entity</strong> だ。
+          </p>
+
+          <Spell type="spell" label="この記事のゴール">
+            「なぜこのRunnableは10msで呼ばれるのか」「CAN受信でどうRunnableが起動するのか」を仕組みとして説明できるようになる。タイミング設計とデバッグの基礎になる知識だ。
+          </Spell>
+
+          <h2 id="runnable">Runnable Entity とは</h2>
+          <p>
+            <strong>Runnable Entity</strong> は、SWCの実行単位だ。OSのタスクではなく、タスクの<em>中で呼ばれる関数</em>だと理解しよう。
+          </p>
+          <p>
+            一つのAtomicSWCは複数のRunnableを持てる。Init用・10ms周期用・CAN受信時用、それぞれ別のRunnableとして宣言する。
+          </p>
+
+          <CodeBlock lang="c" title="SWCの複数Runnable">
+{`/* --- Runnable #1: 起動時に一度だけ呼ばれる --- */
+void SpeedCtrl_Init(void)
+{
+    /* NvMからキャリブレーション値を読む */
+    Rte_Call_NvM_ReadBlock(CALIB_ID, &g_calib);
+}
+
+/* --- Runnable #2: 10ms周期 --- */
+void SpeedCtrl_10ms(void)
+{
+    uint16 speed;
+    Rte_Read_SpeedIn_VehicleSpeed(&speed);
+    /* 制御演算 */
+    Rte_Write_FuelOut_InjectionTime(calcFuel(speed));
+}
+
+/* --- Runnable #3: CAN受信時 (DataReceivedEvent) --- */
+void SpeedCtrl_OnThrottleReceived(void)
+{
+    uint8 throttle;
+    Rte_Read_ThrottleIn_ThrottlePosition(&throttle);
+    g_throttleSnapshot = throttle;   /* IRV更新 */
+}`}
+          </CodeBlock>
+
+          <h2 id="events">RTE Event の種類</h2>
+          <p>各Runnableに「いつ呼ぶか」を指定するのが <strong>RTE Event</strong> だ。</p>
+        </Prose>
+
+        <!-- Events table visual -->
+        <div class="my-8 space-y-2">
+          {events.map(ev => (
+            <div class={`border rounded-lg px-5 py-3.5 flex flex-col sm:flex-row sm:items-center gap-3 ${ev.color} bg-opacity-10`}>
+              <div class="font-mono text-sm font-bold min-w-[220px]">{ev.name}</div>
+              <div class="text-gray-500 text-xs flex-1">
+                <span class="text-gray-400">トリガー:</span> {ev.trigger}
+              </div>
+              <div class="text-gray-600 text-xs sm:text-right">
+                {ev.use}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <Prose>
+          <h2 id="timing">TimingEvent — 周期実行の仕組み</h2>
+          <p>
+            最も一般的なEventが <strong>TimingEvent</strong> だ。ARXMLで「このRunnableを10msごとに呼べ」と宣言すると、RTEはOSのAlarm/ScheduleTableを使って実現する。
+          </p>
+
+          <CodeBlock lang="xml" title="ARXML — TimingEvent の宣言">
+{`<INTERNAL-BEHAVIOR>
+  <SHORT-NAME>SpeedControlSWC_IB</SHORT-NAME>
+  <RUNNABLES>
+    <RUNNABLE-ENTITY>
+      <SHORT-NAME>SpeedCtrl_10ms</SHORT-NAME>
+      <MINIMUM-START-INTERVAL>0.009</MINIMUM-START-INTERVAL> <!-- 9ms: 連続起動の最短間隔 -->
+      <CAN-BE-INVOKED-CONCURRENTLY>false</CAN-BE-INVOKED-CONCURRENTLY>
+    </RUNNABLE-ENTITY>
+  </RUNNABLES>
+  <EVENTS>
+    <TIMING-EVENT>
+      <SHORT-NAME>TE_SpeedCtrl_10ms</SHORT-NAME>
+      <START-ON-EVENT-REF>.../SpeedCtrl_10ms</START-ON-EVENT-REF>
+      <PERIOD>0.01</PERIOD>  <!-- 10ms = 0.01秒 -->
+    </TIMING-EVENT>
+  </EVENTS>
+</INTERNAL-BEHAVIOR>`}
+          </CodeBlock>
+
+          <p>
+            このARXMLをもとにRTEジェネレータは、対応するOSタスクへのRunnableマッピングコードを生成する。実際の割り当て(どのタスクに入れるか)は <strong>OS設定 (OIL/ARXML)</strong> で指定する。
+          </p>
+
+          <h2 id="data-rx">DataReceivedEvent — データ駆動実行</h2>
+          <p>
+            CANで信号を受信したときにRunnableを起動したい場合、<strong>DataReceivedEvent</strong> を使う。TimingEventの「定周期でポーリング」とは対照的な、<em>イベント駆動</em>モデルだ。
+          </p>
+
+          <CodeBlock lang="xml" title="ARXML — DataReceivedEvent の宣言">
+{`<DATA-RECEIVED-EVENT>
+  <SHORT-NAME>DRE_OnThrottleReceived</SHORT-NAME>
+  <START-ON-EVENT-REF>.../SpeedCtrl_OnThrottleReceived</START-ON-EVENT-REF>
+  <!-- ThrottleIn ポートの ThrottlePosition 要素を受信したらトリガー -->
+  <DATA-IREF>
+    <CONTEXT-R-PORT-REF>.../ThrottleIn</CONTEXT-R-PORT-REF>
+    <TARGET-DATA-ELEMENT-REF>.../ThrottlePosition</TARGET-DATA-ELEMENT-REF>
+  </DATA-IREF>
+</DATA-RECEIVED-EVENT>`}
+          </CodeBlock>
+
+          <Spell type="rune" label="定周期 vs イベント駆動の選び方">
+            <strong>TimingEvent (定周期)</strong>: センサ読み取り・制御ループ・CANの定期送信。予測可能で解析しやすい。<br/>
+            <strong>DataReceivedEvent</strong>: 外部からのコマンド受信・緊急処理・低頻度イベント。レスポンスが必要なとき。<br/>
+            <em>多くの制御ロジックはTimingEvent主体で、割込み系はDataReceivedEventを使う混合構成になる。</em>
+          </Spell>
+
+          <h2 id="wcet">WCET と最悪応答時間</h2>
+          <p>
+            Runnableを設計するうえで避けて通れないのが <strong>WCET (Worst Case Execution Time — 最悪実行時間)</strong> の考え方だ。
+          </p>
+          <p>
+            10msタスクの中に、実行に12msかかるRunnableを入れると何が起きるか。タスクがオーバランし、Watchdog Resetか、後続タスクの遅延を引き起こす。<strong>RTOSではすべてのRunnableがWCET内に完了することを設計で保証しなければならない</strong>。
+          </p>
+
+          <table>
+            <thead><tr><th>タスク</th><th>周期</th><th>Runnable群のWCET合計</th><th>余裕</th></tr></thead>
+            <tbody>
+              <tr><td>OsTask_1ms</td><td>1 ms</td><td>≤ 0.6 ms</td><td>0.4 ms</td></tr>
+              <tr><td>OsTask_10ms</td><td>10 ms</td><td>≤ 7 ms</td><td>3 ms</td></tr>
+              <tr><td>OsTask_100ms</td><td>100 ms</td><td>≤ 70 ms</td><td>30 ms</td></tr>
+            </tbody>
+          </table>
+
+          <Spell type="warning" label="WCETの罠">
+            静的解析ツール(aiT, RapidRMA等)がなければ、WCETは「実測最大値 × 安全係数」で見積もる。<strong>最悪ケースは条件分岐の最長パス × キャッシュミス × バス競合</strong>を考慮する。「平均で速いから大丈夫」は禁物。
+          </Spell>
+
+          <h2 id="inter-runnable">Inter-Runnable Variable (IRV)</h2>
+          <p>
+            同一SWC内の複数Runnable間で状態を共有するには <strong>IRV (Inter-Runnable Variable)</strong> を使う。グローバル変数ではなく、ARXMLで宣言した専用の共有領域だ。
+          </p>
+
+          <CodeBlock lang="c" title="IRVの使用例">
+{`/* ARXMLで宣言したIRV: g_throttleSnapshot */
+/* 型: uint8, 初期値: 0 */
+
+/* Runnable A: CAN受信時に書く */
+void SpeedCtrl_OnThrottleReceived(void)
+{
+    uint8 val;
+    Rte_Read_ThrottleIn_ThrottlePosition(&val);
+    Rte_IrvWrite_SpeedCtrl_ThrottleSnapshot(&val);  /* IRVへ書く */
+}
+
+/* Runnable B: 10msで読んで制御に使う */
+void SpeedCtrl_10ms(void)
+{
+    uint8 throttle;
+    Rte_IrvRead_SpeedCtrl_ThrottleSnapshot(&throttle);  /* IRVから読む */
+    /* throttle を制御演算に使用 */
+}`}
+          </CodeBlock>
+
+          <Spell type="contract" label="IRVの掟">
+            IRVへのアクセスはRTE APIを経由する。直接グローバル変数のように書いてはいけない。RTEはIRVの型・初期値・アクセス権をARXMLで管理し、必要に応じて排他制御を生成する。
+          </Spell>
+
+          <h2 id="summary">まとめ</h2>
+          <ul>
+            <li><strong>Runnable Entity</strong> はSWCの実行単位。一つのSWCに複数持てる。</li>
+            <li><strong>RTE Event</strong> がRunnableの起動条件を決める。TimingEvent / DataReceivedEvent が主役。</li>
+            <li>Runnableは<strong>WCET内に必ず完了</strong>するよう設計する。オーバランは禁忌。</li>
+            <li>SWC内Runnable間の状態共有は <strong>IRV (Inter-Runnable Variable)</strong> を使い、RTE API経由でアクセスする。</li>
+          </ul>
+          <p>SWC章はここまで。次は<strong>診断通信章</strong>へ。UDS・DTC・セキュリティアクセス — 現場エンジニアが毎日触る世界へ飛び込もう。</p>
+        </Prose>
+
+        <nav class="mt-20 pt-10 border-t border-violet-900/30 flex flex-col sm:flex-row items-stretch gap-3">
+          <a href="/topics/swc/atomic-and-composition" class="flex-1 group border border-violet-900/40 hover:border-violet-700 rounded-lg p-4 transition-colors">
+            <div class="font-mono text-[10px] text-violet-700 tracking-widest mb-1">← PREV · SWC.02</div>
+            <div class="text-violet-300 group-hover:text-violet-100 transition-colors">Atomic と Composition</div>
+          </a>
+          <a href="/topics/swc" class="flex-1 group border border-violet-900/40 hover:border-violet-700 rounded-lg p-4 transition-colors text-right">
+            <div class="font-mono text-[10px] text-violet-700 tracking-widest mb-1">章扉 →</div>
+            <div class="text-violet-300 group-hover:text-violet-100 transition-colors">SWC章へ戻る</div>
+          </a>
+        </nav>
+      </article>
+      <aside class="hidden lg:block">
+        <div class="sticky top-28 border-l border-violet-900/40 pl-5">
+          <div class="font-mono text-[10px] text-violet-700 tracking-widest mb-4">// TABLE OF CONTENTS</div>
+          <ul class="space-y-3 text-sm">
+            {toc.map(t => (
+              <li><a href={`#${t.id}`} class="text-gray-500 hover:text-violet-400 transition-colors block leading-snug">{t.label}</a></li>
+            ))}
+          </ul>
+        </div>
+      </aside>
+    </div>
+  </div>
+</Page>

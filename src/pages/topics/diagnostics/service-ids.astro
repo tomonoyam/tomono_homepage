@@ -1,0 +1,301 @@
+---
+import Page from '../../../layouts/Page.astro';
+import Breadcrumb from '../../../components/Breadcrumb.astro';
+import PageHeader from '../../../components/PageHeader.astro';
+import Prose from '../../../components/Prose.astro';
+import Spell from '../../../components/Spell.astro';
+import CodeBlock from '../../../components/CodeBlock.astro';
+
+const toc = [
+  { id: 'session-control', label: '0x10 DiagnosticSessionControl' },
+  { id: 'ecu-reset', label: '0x11 ECUReset' },
+  { id: 'clear-dtc', label: '0x14 ClearDiagnosticInformation' },
+  { id: 'read-dtc', label: '0x19 ReadDTCInformation' },
+  { id: 'rdbi', label: '0x22 ReadDataByIdentifier' },
+  { id: 'security', label: '0x27 SecurityAccess' },
+  { id: 'comm-ctrl', label: '0x28 CommunicationControl' },
+  { id: 'wdbi', label: '0x2E WriteDataByIdentifier' },
+  { id: 'routine', label: '0x31 RoutineControl' },
+  { id: 'download', label: '0x34/36/37 フラッシュ書き込み' },
+  { id: 'tester-present', label: '0x3E TesterPresent' },
+];
+
+const services = [
+  {
+    sid: '0x10',
+    name: 'DiagnosticSessionControl',
+    purpose: 'セッション切替',
+    color: 'cyan',
+    req: '10 03',
+    res: '50 03 00 19 01 F4',
+    notes: 'SubFunction: 01=Default, 02=Programming, 03=Extended\nレスポンスにはP2/P2*タイムアウト値が含まれる',
+  },
+  {
+    sid: '0x11',
+    name: 'ECUReset',
+    purpose: 'ECUリセット',
+    color: 'red',
+    req: '11 01',
+    res: '51 01',
+    notes: 'SubFunction: 01=Hard Reset, 02=KeyOffOnReset, 03=Soft Reset\nHard Resetは実質的な電源ON/OFF相当',
+  },
+  {
+    sid: '0x14',
+    name: 'ClearDiagnosticInformation',
+    purpose: 'DTC消去',
+    color: 'amber',
+    req: '14 FF FF FF',
+    res: '54',
+    notes: 'FF FF FF = すべてのDTCをクリア\n特定グループのみ消去するGroupOfDTCも指定可能',
+  },
+  {
+    sid: '0x19',
+    name: 'ReadDTCInformation',
+    purpose: 'DTC読み出し',
+    color: 'amber',
+    req: '19 02 CF',
+    res: '59 02 CF 00 AB 12 34 29',
+    notes: 'SubFunction 0x02: DTCByStatusMask\nCF = ステータスマスク (confirmed + testFailed等)',
+  },
+  {
+    sid: '0x22',
+    name: 'ReadDataByIdentifier',
+    purpose: 'DID読み出し',
+    color: 'cyan',
+    req: '22 F1 90',
+    res: '62 F1 90 31 47 31 59 53...',
+    notes: 'F1 90 = VIN番号 (標準DID)\n複数DIDを1リクエストで読める (ISO 14229-1 §10.3)',
+  },
+  {
+    sid: '0x27',
+    name: 'SecurityAccess',
+    purpose: 'セキュリティ認証',
+    color: 'purple',
+    req: '27 01 (Seed Request)',
+    res: '67 01 A3 B2 C1 (Seed)',
+    notes: 'Level別に異なるSeed/Keyペアを使う\n3回失敗するとDelay Timerが課される',
+  },
+  {
+    sid: '0x28',
+    name: 'CommunicationControl',
+    purpose: '通信ON/OFF制御',
+    color: 'blue',
+    req: '28 03 01',
+    res: '68 03',
+    notes: 'フラッシュ中は他通信を止めてバスを専有\n03=disableRxAndTx, 01=normalCommunication',
+  },
+  {
+    sid: '0x2E',
+    name: 'WriteDataByIdentifier',
+    purpose: 'DIDへの書き込み',
+    color: 'amber',
+    req: '2E F1 80 01 23',
+    res: '6E F1 80',
+    notes: 'キャリブレーション値・設定パラメータの書き込み\nExtended Session + SecurityAccess後に使うことが多い',
+  },
+  {
+    sid: '0x31',
+    name: 'RoutineControl',
+    purpose: '処理実行・結果取得',
+    color: 'green',
+    req: '31 01 FF 01',
+    res: '71 01 FF 01 00',
+    notes: 'SubFunction: 01=Start, 02=Stop, 03=RequestResult\nErase Flash (FF 00), CheckProgrammingDependencies (FF 01) 等',
+  },
+  {
+    sid: '0x34/36/37',
+    name: 'Download Sequence',
+    purpose: 'フラッシュ書き込み',
+    color: 'red',
+    req: '34 → 36 × N → 37',
+    res: '74 → 76 × N → 77',
+    notes: '0x34 RequestDownload: 書き込みアドレス・サイズを宣言\n0x36 TransferData: データブロックを分割送信\n0x37 RequestTransferExit: 完了',
+  },
+  {
+    sid: '0x3E',
+    name: 'TesterPresent',
+    purpose: 'セッション維持',
+    color: 'gray',
+    req: '3E 00',
+    res: '7E 00 (or suppressed)',
+    notes: 'SubFunction 0x80 = suppressPosRspMsgIndicationBit\nレスポンスなしでS3タイマーリセット。バスへの影響を最小化できる',
+  },
+];
+
+const colorMap: Record<string, string> = {
+  cyan:   'text-cyan-400 border-cyan-800/50 bg-cyan-950/20',
+  amber:  'text-amber-400 border-amber-800/50 bg-amber-950/20',
+  purple: 'text-purple-400 border-purple-800/50 bg-purple-950/20',
+  blue:   'text-blue-400 border-blue-800/50 bg-blue-950/20',
+  green:  'text-green-400 border-green-800/50 bg-green-950/20',
+  red:    'text-red-400 border-red-800/50 bg-red-950/20',
+  gray:   'text-gray-400 border-gray-700/50 bg-gray-900/30',
+};
+---
+
+<Page title="サービスID完全ガイド | AUTOSAR.MAGIC" description="UDSの主要サービスID 15種類を現場目線で完全解説。0x10〜0x3EのSID・リクエスト/レスポンスフォーマット・NRC。">
+  <div class="max-w-5xl mx-auto px-6">
+    <Breadcrumb items={[
+      { label: 'HOME', href: '/' },
+      { label: 'TOPICS', href: '/#topics' },
+      { label: '診断通信', href: '/topics/diagnostics' },
+      { label: 'SERVICE IDs' },
+    ]} />
+    <PageHeader
+      chapter="DIAG · #02 :: SERVICE REFERENCE"
+      title="サービスID完全ガイド"
+      subtitle="呪文の辞書 — SIDとその使い方。現場のエンジニアが毎日触る11種のサービスIDを、フォーマットと実例で完全解説。"
+      meta="読了時間: 約16分 · レベル: 中級 · 最終更新: 2025-05-28"
+      accent="amber"
+    />
+    <div class="grid lg:grid-cols-[1fr_220px] gap-12">
+      <article>
+        <Prose>
+          <p>
+            UDSのSID (Service Identifier) は一覧表を見るだけでは使えない。<strong>リクエストのフォーマット・レスポンスの意味・よく使うNRC</strong> までセットで理解して初めて現場で動ける。本記事では現場頻出の11サービスを深掘りする。
+          </p>
+
+          <Spell type="rune" label="NRCの読み方">
+            Negative Response Code (NRC) は <code>7F [SID] [NRC]</code> の3バイト。よく出る NRC:<br/>
+            <strong>0x10</strong>: generalReject · <strong>0x11</strong>: serviceNotSupported<br/>
+            <strong>0x12</strong>: subFunctionNotSupported · <strong>0x22</strong>: conditionsNotCorrect<br/>
+            <strong>0x24</strong>: requestSequenceError · <strong>0x31</strong>: requestOutOfRange<br/>
+            <strong>0x33</strong>: securityAccessDenied · <strong>0x35</strong>: invalidKey
+          </Spell>
+        </Prose>
+
+        <!-- Service cards -->
+        <div class="my-10 space-y-6">
+          {services.map(s => {
+            const c = colorMap[s.color];
+            return (
+              <div class={`border rounded-xl overflow-hidden ${c}`}>
+                <div class="px-5 py-3 border-b border-current/20 flex items-center justify-between flex-wrap gap-2">
+                  <div class="flex items-center gap-3">
+                    <span class="font-mono font-bold text-sm">{s.sid}</span>
+                    <span class="font-mono text-xs opacity-70">{s.name}</span>
+                  </div>
+                  <span class="text-xs opacity-60">{s.purpose}</span>
+                </div>
+                <div class="p-5 space-y-3 bg-[#0a0a1f]/60">
+                  <div class="font-mono text-xs space-y-1">
+                    <div class="flex gap-3 items-start">
+                      <span class="text-gray-600 shrink-0 w-12">REQ</span>
+                      <code class="text-gray-300 break-all">{s.req}</code>
+                    </div>
+                    <div class="flex gap-3 items-start">
+                      <span class="text-gray-600 shrink-0 w-12">RES</span>
+                      <code class="text-gray-300 break-all">{s.res}</code>
+                    </div>
+                  </div>
+                  <div class="text-xs text-gray-500 leading-relaxed whitespace-pre-line border-t border-current/10 pt-3">
+                    {s.notes}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        <Prose>
+          <h2 id="session-control">実践: フラッシュ書き込みシーケンス</h2>
+          <p>複数のSIDを組み合わせた実践例として、フラッシュ書き込みの全手順を示す。</p>
+
+          <CodeBlock lang="text" title="ECUリプログラミング — 完全シーケンス">
+{`=== Phase 1: セッション確立 ===
+→ 10 02                   (Programming Session へ)
+← 50 02 00 19 01 F4       (OK, P2=25ms, P2*=500ms)
+
+→ 28 03 01                (通信停止: disableRxAndTx)
+← 68 03                   (OK)
+
+=== Phase 2: セキュリティ解除 ===
+→ 27 01                   (Seed Request)
+← 67 01 A3 F2 0B          (Seed)
+
+→ 27 02 [Calculated Key]  (Key送信)
+← 67 02                   (認証成功)
+
+=== Phase 3: フラッシュ消去 ===
+→ 31 01 FF 00 00 00 00 00 80 00  (Erase Routine: アドレス・サイズ)
+← 71 01 FF 00 00           (消去完了)
+
+→ 31 03 FF 00              (Erase 結果確認)
+← 71 03 FF 00 00           (成功)
+
+=== Phase 4: データ転送 ===
+→ 34 00 44 00 00 00 00 00 80 00  (RequestDownload: アドレス・サイズ)
+← 74 20 02 00              (OK, maxBlockLen=512B)
+
+→ 36 01 [512 bytes data]   (Block #1)
+← 76 01                    (OK)
+→ 36 02 [512 bytes data]   (Block #2)
+← 76 02                    (OK)
+...繰り返し...
+
+→ 37                       (TransferExit)
+← 77                       (OK)
+
+=== Phase 5: 整合性チェック ===
+→ 31 01 FF 01              (CheckProgrammingDependencies)
+← 71 01 FF 01 00           (OK)
+
+=== Phase 6: 復帰 ===
+→ 11 01                    (ECU Hard Reset)
+← 51 01                    (Reset実行)`}
+          </CodeBlock>
+
+          <Spell type="warning" label="フラッシュ中の禁忌">
+            <strong>途中で電源を切らない。</strong> フラッシュ書き込み中断はECUを文鎮化(ブリック)させる。多くのECUはBootloaderがフラッシュ領域と分離しており、Bootloaderが生きていれば再書き込み可能だが、Bootloaderまで壊れると物理的な手術が必要になる。
+          </Spell>
+
+          <h2 id="tester-present">TesterPresent の suppress テクニック</h2>
+          <p>長時間処理(フラッシュ消去・大容量ダウンロード)中もセッションを維持するためにTesterPresentを定期送信するが、<strong>バスの負荷を下げるため <code>0x3E 0x80</code> で suppressPosRsp を使う</strong>のが現場の常識だ。</p>
+
+          <CodeBlock lang="text" title="TesterPresent suppress">
+{`通常:
+→ 3E 00   (SubFunction = 0x00: レスポンスあり)
+← 7E 00
+
+suppress:
+→ 3E 80   (SubFunction = 0x80: suppressPosRspMsgIndicationBit)
+← (レスポンスなし) ← バスに何も出ない!
+
+S3タイマーはリセットされる。
+バスに余計なフレームを出さずにセッションを維持できる。`}
+          </CodeBlock>
+
+          <h2 id="summary">まとめ</h2>
+          <ul>
+            <li>UDSのSIDはリクエスト・レスポンス・NRCをセットで覚える</li>
+            <li><strong>0x10→0x27→0x28→0x31→0x34→0x36→0x37→0x11</strong> がフラッシュの全シーケンス</li>
+            <li><code>0x3E 0x80</code> のsuppressでバス負荷を抑えながらセッション維持</li>
+            <li>NRCは<strong>0x7F [SID] [NRC]</strong>の3バイト。エラー原因を素早く特定できる</li>
+          </ul>
+          <p>次の記事では、診断の核心 — <strong>DTC (Diagnostic Trouble Code)</strong> の構造とAUTOSAR Demの仕組みを深掘りする。</p>
+        </Prose>
+
+        <nav class="mt-20 pt-10 border-t border-amber-900/30 flex flex-col sm:flex-row items-stretch gap-3">
+          <a href="/topics/diagnostics/what-is-uds" class="flex-1 group border border-amber-900/40 hover:border-amber-700 rounded-lg p-4 transition-colors">
+            <div class="font-mono text-[10px] text-amber-700 tracking-widest mb-1">← PREV · DIAG.01</div>
+            <div class="text-amber-300 group-hover:text-amber-100 transition-colors">UDSとは何か</div>
+          </a>
+          <a href="/topics/diagnostics/dtc" class="flex-1 group border border-amber-900/40 hover:border-amber-700 rounded-lg p-4 transition-colors text-right">
+            <div class="font-mono text-[10px] text-amber-700 tracking-widest mb-1">NEXT · DIAG.03 →</div>
+            <div class="text-amber-300 group-hover:text-amber-100 transition-colors">DTC — 故障コードの魔術</div>
+          </a>
+        </nav>
+      </article>
+      <aside class="hidden lg:block">
+        <div class="sticky top-28 border-l border-amber-900/40 pl-5">
+          <div class="font-mono text-[10px] text-amber-700 tracking-widest mb-4">// TABLE OF CONTENTS</div>
+          <ul class="space-y-3 text-sm">
+            {toc.map(t => (
+              <li><a href={`#${t.id}`} class="text-gray-500 hover:text-amber-400 transition-colors block leading-snug">{t.label}</a></li>
+            ))}
+          </ul>
+        </div>
+      </aside>
+    </div>
+  </div>
+</Page>

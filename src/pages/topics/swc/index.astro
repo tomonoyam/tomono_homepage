@@ -1,0 +1,125 @@
+---
+import Page from '../../../layouts/Page.astro';
+import Breadcrumb from '../../../components/Breadcrumb.astro';
+import PageHeader from '../../../components/PageHeader.astro';
+
+const articles = [
+  {
+    slug: 'what-is-swc',
+    no: '01',
+    title: 'SWCとは何か',
+    sub: '術者の正体 — 独立した呪文の担い手',
+    desc: 'AUTOSARにおけるSWCの定義と役割。なぜ「独立性」がこれほど重要なのか。ポータビリティとテスタビリティという二つの恩恵を解き明かす。',
+    level: '入門',
+    levelColor: 'text-green-400 border-green-800/50',
+    time: '8分',
+  },
+  {
+    slug: 'atomic-and-composition',
+    no: '02',
+    title: 'Atomic と Composition',
+    sub: '術者の分類 — 個と集合の設計',
+    desc: '最小単位のAtomic SWCと、複数を束ねるComposition SWC。なぜ分けるのか、どう設計するのかを実例とともに解剖する。',
+    level: '中級',
+    levelColor: 'text-blue-400 border-blue-800/50',
+    time: '12分',
+  },
+  {
+    slug: 'runnable-and-event',
+    no: '03',
+    title: 'Runnable とイベント',
+    sub: '詠唱の引き金 — いつ、誰が呼ぶのか',
+    desc: 'SWCの実行単位Runnableと、それを起動するRTE Event。TimingEvent・DataReceiveEvent・InitEventなど各トリガーの設計を現場目線で語る。',
+    level: '中級',
+    levelColor: 'text-blue-400 border-blue-800/50',
+    time: '14分',
+  },
+];
+
+const swcTypes = [
+  { name: 'Application SWC',     icon: '◈', desc: '純粋なアプリケーションロジック。センサ入力→制御→アクチュエータ出力。', color: 'text-purple-300 border-purple-700/50 bg-purple-950/30' },
+  { name: 'Sensor/Actuator SWC', icon: '⎔', desc: 'センサやアクチュエータのI/O抽象化。ECU Abstraction Layerに近い層で使う。', color: 'text-cyan-300 border-cyan-700/50 bg-cyan-950/30' },
+  { name: 'Service SWC',         icon: '◉', desc: 'BSWのサービス(NvM, Dcm等)をSWCとして包む。他SWCに機能を提供する。', color: 'text-blue-300 border-blue-700/50 bg-blue-950/30' },
+  { name: 'ECU-Abstraction SWC', icon: '⬡', desc: 'ECUハードウェア固有の機能を抽象化して提供する中間層SWC。', color: 'text-teal-300 border-teal-700/50 bg-teal-950/30' },
+  { name: 'Parameter SWC',       icon: '⟡', desc: 'キャリブレーションパラメータを保持・提供するSWC。', color: 'text-amber-300 border-amber-700/50 bg-amber-950/30' },
+  { name: 'Composition SWC',     icon: '⊕', desc: '複数SWCをひとつのブラックボックスとして束ねる器。Tier1部品の典型。', color: 'text-violet-300 border-violet-700/50 bg-violet-950/30' },
+];
+---
+
+<Page title="SWC — 術者の設計 | AUTOSAR.MAGIC" description="AUTOSAR SWC (Software Component) の全体像。種別・Runnable・ポート設計をまとめた章扉。">
+  <div class="max-w-6xl mx-auto px-6">
+    <Breadcrumb items={[
+      { label: 'HOME', href: '/' },
+      { label: 'TOPICS', href: '/#topics' },
+      { label: 'SWC' },
+    ]} />
+
+    <PageHeader
+      chapter="CHAPTER 05 :: SOFTWARE COMPONENT"
+      title="SWC — 術者の設計"
+      subtitle="AUTOSARにおける術者 — SWCは、RTEという召喚陣の上で動く独立した呪文の担い手だ。独立性・ポータビリティ・テスタビリティ、三つの魔法がここに宿る。"
+      meta="AUTOSAR CP · Software Component · Runnable Entity · RTE Event"
+      accent="purple"
+    />
+
+    <!-- SWC types grid -->
+    <section class="mb-24">
+      <div class="flex items-center gap-4 mb-12">
+        <div class="h-px flex-1 bg-gradient-to-r from-transparent to-violet-800/50"></div>
+        <span class="font-mono text-xs text-violet-600 tracking-widest px-4">// SWC TYPES</span>
+        <div class="h-px flex-1 bg-gradient-to-l from-transparent to-violet-800/50"></div>
+      </div>
+      <h2 class="text-2xl md:text-3xl font-serif font-semibold text-white text-center mb-3">術者の分類</h2>
+      <p class="text-gray-500 text-sm text-center mb-12 font-mono">Six types defined in AUTOSAR specification</p>
+      <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {swcTypes.map(t => (
+          <div class={`border rounded-lg p-5 ${t.color} hover:-translate-y-1 transition-transform`}>
+            <span class="text-2xl mb-3 block">{t.icon}</span>
+            <div class="font-mono text-sm font-bold mb-2">{t.name}</div>
+            <p class="text-gray-400 text-xs leading-relaxed">{t.desc}</p>
+          </div>
+        ))}
+      </div>
+    </section>
+
+    <!-- Articles -->
+    <section class="mb-24">
+      <div class="flex items-center gap-4 mb-12">
+        <div class="h-px flex-1 bg-gradient-to-r from-transparent to-violet-800/50"></div>
+        <span class="font-mono text-xs text-violet-600 tracking-widest px-4">// CHAPTER ARTICLES</span>
+        <div class="h-px flex-1 bg-gradient-to-l from-transparent to-violet-800/50"></div>
+      </div>
+      <h2 class="text-2xl md:text-3xl font-serif font-semibold text-white text-center mb-3">この章の記事</h2>
+      <p class="text-gray-500 text-sm text-center mb-12 font-mono">Entries in this chapter</p>
+      <div class="grid md:grid-cols-3 gap-6">
+        {articles.map(a => (
+          <a href={`/topics/swc/${a.slug}`} class="group relative border border-violet-900/50 rounded-xl bg-[#0a0a1f]/80 overflow-hidden hover:-translate-y-2 hover:border-violet-600/70 transition-all duration-300 hover:shadow-[0_0_30px_rgba(139,92,246,0.15)]">
+            <div class="h-1 bg-gradient-to-r from-violet-500/40 to-purple-500/40"></div>
+            <div class="p-6">
+              <div class="flex items-center justify-between mb-4">
+                <span class={`text-[10px] font-mono px-2 py-1 rounded border ${a.levelColor}`}>{a.level}</span>
+                <span class="text-gray-600 text-[11px] font-mono">{a.time}</span>
+              </div>
+              <div class="font-mono text-[10px] text-gray-700 mb-2">SWC · #{a.no}</div>
+              <h3 class="text-white font-serif text-xl font-semibold mb-1 leading-snug group-hover:text-violet-100 transition-colors">{a.title}</h3>
+              <div class="text-violet-400 text-xs font-mono mb-3">{a.sub}</div>
+              <p class="text-gray-500 text-sm leading-relaxed line-clamp-3">{a.desc}</p>
+              <div class="mt-5 pt-4 border-t border-gray-800/50 flex items-center justify-between">
+                <span class="text-gray-600 text-xs font-mono">SWC.{a.no}</span>
+                <span class="text-violet-400 text-xs font-mono group-hover:translate-x-1 transition-transform">読む →</span>
+              </div>
+            </div>
+          </a>
+        ))}
+      </div>
+    </section>
+
+    <section class="mb-20 border-t border-violet-900/30 pt-10">
+      <div class="flex flex-col md:flex-row items-center justify-between gap-4 text-sm">
+        <a href="/" class="font-mono text-violet-600 hover:text-violet-400 transition-colors">← HOME</a>
+        <div class="font-mono text-xs text-gray-700 tracking-widest">CHAPTER 05 / SOFTWARE COMPONENT</div>
+        <a href={`/topics/swc/${articles[0].slug}`} class="font-mono text-violet-600 hover:text-violet-400 transition-colors">最初の記事 →</a>
+      </div>
+    </section>
+  </div>
+</Page>

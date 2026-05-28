@@ -1,0 +1,173 @@
+---
+import Page from '../../../layouts/Page.astro';
+import Breadcrumb from '../../../components/Breadcrumb.astro';
+import PageHeader from '../../../components/PageHeader.astro';
+
+const articles = [
+  {
+    slug: 'what-is-uds',
+    no: '01',
+    title: 'UDSとは何か',
+    sub: '診断魔法陣の全体像 — ISO 14229の世界',
+    desc: 'UnifiedDiagnosticServicesの設計思想。なぜOBD-IIと別にUDSが必要なのか。セッション・セキュリティ・サービスという三層構造を解き明かす。',
+    level: '入門',
+    levelColor: 'text-green-400 border-green-800/50',
+    time: '9分',
+  },
+  {
+    slug: 'service-ids',
+    no: '02',
+    title: 'サービスID完全ガイド',
+    sub: '呪文の辞書 — SIDとその使い方',
+    desc: '0x10 DiagnosticSessionControl から 0x34 RequestDownloadまで。現場でよく使う15のSIDを、リクエスト/レスポンスのフォーマットとともに徹底解説。',
+    level: '中級',
+    levelColor: 'text-blue-400 border-blue-800/50',
+    time: '16分',
+  },
+  {
+    slug: 'dtc',
+    no: '03',
+    title: 'DTC — 故障コードの魔術',
+    sub: '診断書の読み方 — DTCとDemの世界',
+    desc: 'DiagnosticTroubleCodeの構造・ステータスビット・スナップショットデータ。AUTOSARのDemモジュールがどう故障を記録・管理するかを深掘りする。',
+    level: '中級',
+    levelColor: 'text-blue-400 border-blue-800/50',
+    time: '14分',
+  },
+];
+
+const sessionTypes = [
+  { id: '0x01', name: 'Default Session',     desc: '起動直後の通常状態。基本的なサービスのみ利用可能。', color: 'text-gray-300 border-gray-700/50 bg-gray-900/40' },
+  { id: '0x02', name: 'Programming Session', desc: 'フラッシュ書き込み専用。ECUリプログラミングはここで行う。', color: 'text-amber-300 border-amber-700/50 bg-amber-950/30' },
+  { id: '0x03', name: 'Extended Session',    desc: '開発・診断専用。DTC読み出し・キャリブレーション・アクチュエータ制御が可能になる。', color: 'text-cyan-300 border-cyan-700/50 bg-cyan-950/30' },
+];
+---
+
+<Page title="診断通信 — 魔法の診断書 | AUTOSAR.MAGIC" description="UDS (ISO 14229) の全体像。セッション・サービスID・DTC管理をまとめた診断通信章扉。">
+  <div class="max-w-6xl mx-auto px-6">
+    <Breadcrumb items={[
+      { label: 'HOME', href: '/' },
+      { label: 'TOPICS', href: '/#topics' },
+      { label: '診断通信' },
+    ]} />
+
+    <PageHeader
+      chapter="CHAPTER 06 :: DIAGNOSTICS"
+      title="診断通信 — 魔法の診断書"
+      subtitle="ECUは自分の状態を語ることができる。UDS (ISO 14229) という呪文で問えば、故障コード・生データ・ソフトバージョンまで、すべてが返ってくる。"
+      meta="ISO 14229 · UDS · OBD-II · DTC · AUTOSAR Dem / Dcm"
+      accent="amber"
+    />
+
+    <!-- Session model -->
+    <section class="mb-24">
+      <div class="flex items-center gap-4 mb-12">
+        <div class="h-px flex-1 bg-gradient-to-r from-transparent to-amber-800/50"></div>
+        <span class="font-mono text-xs text-amber-600 tracking-widest px-4">// SESSION MODEL</span>
+        <div class="h-px flex-1 bg-gradient-to-l from-transparent to-amber-800/50"></div>
+      </div>
+      <h2 class="text-2xl md:text-3xl font-serif font-semibold text-white text-center mb-3">3つのセッション</h2>
+      <p class="text-gray-500 text-sm text-center mb-12 font-mono">Diagnostic session controls access level</p>
+
+      <!-- Session flow diagram -->
+      <div class="border border-amber-900/40 rounded-xl bg-[#06060f]/80 p-8 mb-8">
+        <div class="flex flex-col md:flex-row items-center justify-center gap-4 font-mono text-sm">
+          {sessionTypes.map((s, i) => (
+            <>
+              <div class={`border rounded-lg px-5 py-4 text-center w-full md:w-52 ${s.color}`}>
+                <div class="text-[10px] opacity-60 mb-1">{s.id}</div>
+                <div class="font-bold text-sm mb-2">{s.name}</div>
+                <div class="text-xs opacity-70 leading-snug">{s.desc}</div>
+              </div>
+              {i < sessionTypes.length - 1 && (
+                <div class="text-amber-700 text-center">
+                  <div class="text-lg">⇄</div>
+                  <div class="text-[9px] opacity-60">0x10</div>
+                </div>
+              )}
+            </>
+          ))}
+        </div>
+        <p class="text-center text-gray-600 font-mono text-[10px] mt-6">DiagnosticSessionControl (SID 0x10) でセッション遷移 · S3Timer超過で Default に戻る</p>
+      </div>
+
+      <!-- Quick ref table -->
+      <div class="border border-amber-900/40 rounded-xl bg-[#0a0a1f]/60 overflow-hidden">
+        <div class="px-5 py-3 border-b border-amber-900/40 font-mono text-[10px] text-amber-600 tracking-widest">COMMON SERVICE IDs (QUICK REFERENCE)</div>
+        <div class="overflow-x-auto">
+          <table class="w-full font-mono text-xs">
+            <thead>
+              <tr class="border-b border-amber-900/30">
+                <th class="text-left px-5 py-3 text-amber-500">SID</th>
+                <th class="text-left px-5 py-3 text-gray-500">Service</th>
+                <th class="text-left px-5 py-3 text-gray-500">用途</th>
+              </tr>
+            </thead>
+            <tbody>
+              {[
+                ['0x10', 'DiagnosticSessionControl', 'セッション切替'],
+                ['0x11', 'ECUReset',                 'ECUリセット'],
+                ['0x14', 'ClearDiagnosticInformation','DTC消去'],
+                ['0x19', 'ReadDTCInformation',        'DTC読み出し'],
+                ['0x22', 'ReadDataByIdentifier',      'DID読み出し (生データ・バージョン等)'],
+                ['0x27', 'SecurityAccess',             'セキュリティ解除 (Seed/Key)'],
+                ['0x28', 'CommunicationControl',       '通信ON/OFF制御'],
+                ['0x2E', 'WriteDataByIdentifier',      'DIDへの書き込み (キャリブレーション等)'],
+                ['0x31', 'RoutineControl',             '処理実行 (消去・チェックサム等)'],
+                ['0x34', 'RequestDownload',            'フラッシュ書き込み開始'],
+                ['0x36', 'TransferData',               'データブロック転送'],
+                ['0x3E', 'TesterPresent',              'セッション維持 (Keepalive)'],
+              ].map(([sid, name, desc]) => (
+                <tr class="border-b border-gray-800/40 hover:bg-amber-950/10 transition-colors">
+                  <td class="px-5 py-2.5 text-amber-400">{sid}</td>
+                  <td class="px-5 py-2.5 text-gray-300">{name}</td>
+                  <td class="px-5 py-2.5 text-gray-500">{desc}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- Articles -->
+    <section class="mb-24">
+      <div class="flex items-center gap-4 mb-12">
+        <div class="h-px flex-1 bg-gradient-to-r from-transparent to-amber-800/50"></div>
+        <span class="font-mono text-xs text-amber-600 tracking-widest px-4">// CHAPTER ARTICLES</span>
+        <div class="h-px flex-1 bg-gradient-to-l from-transparent to-amber-800/50"></div>
+      </div>
+      <h2 class="text-2xl md:text-3xl font-serif font-semibold text-white text-center mb-3">この章の記事</h2>
+      <p class="text-gray-500 text-sm text-center mb-12 font-mono">Entries in this chapter</p>
+      <div class="grid md:grid-cols-3 gap-6">
+        {articles.map(a => (
+          <a href={`/topics/diagnostics/${a.slug}`} class="group relative border border-amber-900/50 rounded-xl bg-[#0a0a1f]/80 overflow-hidden hover:-translate-y-2 hover:border-amber-600/70 transition-all duration-300 hover:shadow-[0_0_30px_rgba(245,158,11,0.12)]">
+            <div class="h-1 bg-gradient-to-r from-amber-500/40 to-orange-500/40"></div>
+            <div class="p-6">
+              <div class="flex items-center justify-between mb-4">
+                <span class={`text-[10px] font-mono px-2 py-1 rounded border ${a.levelColor}`}>{a.level}</span>
+                <span class="text-gray-600 text-[11px] font-mono">{a.time}</span>
+              </div>
+              <div class="font-mono text-[10px] text-gray-700 mb-2">DIAG · #{a.no}</div>
+              <h3 class="text-white font-serif text-xl font-semibold mb-1 leading-snug group-hover:text-amber-100 transition-colors">{a.title}</h3>
+              <div class="text-amber-400 text-xs font-mono mb-3">{a.sub}</div>
+              <p class="text-gray-500 text-sm leading-relaxed line-clamp-3">{a.desc}</p>
+              <div class="mt-5 pt-4 border-t border-gray-800/50 flex items-center justify-between">
+                <span class="text-gray-600 text-xs font-mono">DIAG.{a.no}</span>
+                <span class="text-amber-500 text-xs font-mono group-hover:translate-x-1 transition-transform">読む →</span>
+              </div>
+            </div>
+          </a>
+        ))}
+      </div>
+    </section>
+
+    <section class="mb-20 border-t border-amber-900/30 pt-10">
+      <div class="flex flex-col md:flex-row items-center justify-between gap-4 text-sm">
+        <a href="/" class="font-mono text-amber-600 hover:text-amber-400 transition-colors">← HOME</a>
+        <div class="font-mono text-xs text-gray-700 tracking-widest">CHAPTER 06 / DIAGNOSTICS</div>
+        <a href={`/topics/diagnostics/${articles[0].slug}`} class="font-mono text-amber-600 hover:text-amber-400 transition-colors">最初の記事 →</a>
+      </div>
+    </section>
+  </div>
+</Page>
