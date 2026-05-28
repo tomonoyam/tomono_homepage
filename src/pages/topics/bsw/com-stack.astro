@@ -1,0 +1,266 @@
+---
+import Page from '../../../layouts/Page.astro';
+import Breadcrumb from '../../../components/Breadcrumb.astro';
+import PageHeader from '../../../components/PageHeader.astro';
+import Prose from '../../../components/Prose.astro';
+import Spell from '../../../components/Spell.astro';
+import CodeBlock from '../../../components/CodeBlock.astro';
+
+const toc = [
+  { id: 'overview', label: 'Com Stack 全体像' },
+  { id: 'signal-pdu', label: 'Signal と PDU' },
+  { id: 'tx-flow', label: '送信の旅路' },
+  { id: 'rx-flow', label: '受信の旅路' },
+  { id: 'pdur', label: 'PduR の本懐' },
+  { id: 'gotcha', label: 'ハマりどころ' },
+  { id: 'summary', label: 'まとめ' },
+];
+
+const stackLayers = [
+  { name: 'SWC',     sub: '術者 / Application',           api: 'Rte_Write/Read_*',     color: 'border-purple-700/60 text-purple-300 bg-purple-950/30' },
+  { name: 'RTE',     sub: '召喚陣 / Generated glue',       api: 'Rte_COM_*',            color: 'border-violet-700/60 text-violet-300 bg-violet-950/30' },
+  { name: 'Com',     sub: '信号呪文書 / Signal-level API',   api: 'Com_SendSignal',       color: 'border-blue-700/60 text-blue-300 bg-blue-950/30' },
+  { name: 'PduR',    sub: '呪文の交通整理 / Routing',         api: 'PduR_ComTransmit',     color: 'border-indigo-700/60 text-indigo-300 bg-indigo-950/30' },
+  { name: 'CanIf',   sub: 'CAN抽象魔術 / Frame routing',    api: 'CanIf_Transmit',       color: 'border-cyan-700/60 text-cyan-300 bg-cyan-950/30' },
+  { name: 'Can',     sub: 'MCALドライバ / Register access', api: 'Can_Write (mbox)',     color: 'border-sky-700/60 text-sky-300 bg-sky-950/30' },
+  { name: 'HW',      sub: 'CANコントローラ / Transceiver',  api: 'TX mailbox → bus',     color: 'border-green-700/60 text-green-300 bg-green-950/30' },
+];
+---
+
+<Page title="通信スタック — Com Stack | AUTOSAR.MAGIC" description="AUTOSARの通信スタックを、Application → Com → PduR → CanIf → Can と層を貫いて解剖する。Signal/PDU/IPDU/NPDUの違いも整理。">
+  <div class="max-w-5xl mx-auto px-6">
+    <Breadcrumb items={[
+      { label: 'HOME', href: '/' },
+      { label: 'TOPICS', href: '/#topics' },
+      { label: 'BSW', href: '/topics/bsw' },
+      { label: 'COM STACK' },
+    ]} />
+
+    <PageHeader
+      chapter="BSW · #02 :: COMMUNICATION"
+      title="通信スタック"
+      subtitle="呪文を伝達する魔導機構 — Com Stack の旅路。SWCの一行 Rte_Write が、いかに物理線上のCANフレームへと姿を変えるか。"
+      meta="読了時間: 約15分 · レベル: 中級 · 最終更新: 2025-04-05"
+      accent="blue"
+    />
+
+    <div class="grid lg:grid-cols-[1fr_220px] gap-12">
+      <article>
+        <Prose>
+          <p>
+            <code>Rte_Write_VehicleSpeed_Speed(60)</code> — このたった一行が、最終的には<strong>CANバス上のフレーム</strong>として他のECUへ届く。だが、その間には何層もの魔術が介在している。
+          </p>
+          <p>
+            本記事ではAUTOSAR Classic Platformの <strong>Com Stack</strong> を、送信と受信の両方向から追いかけ、各層が何をしているのかを明らかにする。
+          </p>
+
+          <Spell type="spell" label="この記事のゴール">
+            <code>SWC → RTE → Com → PduR → CanIf → Can → CAN bus</code> の流れを<strong>説明できる</strong>ようになる。さらに、Signal/PDU/IPDU/NPDU の語彙を整理し、ARXML設計やデバッグで迷子にならない地図を手に入れる。
+          </Spell>
+
+          <h2 id="overview">Com Stack 全体像</h2>
+          <p>
+            まずは全体像を眺めよう。送信(Tx)方向で、上から下へと層が積まれている。
+          </p>
+        </Prose>
+
+        <!-- Stack diagram -->
+        <div class="my-10 space-y-2">
+          {stackLayers.map((layer, i) => (
+            <div class={`relative border ${layer.color} rounded-lg px-5 py-4 flex items-center justify-between hover:scale-[1.01] transition-transform`}>
+              <div>
+                <div class="font-mono text-xs tracking-widest">{layer.name}</div>
+                <div class="text-xs opacity-70 mt-0.5">{layer.sub}</div>
+              </div>
+              <div class="font-mono text-[11px] opacity-80">{layer.api}</div>
+              {i < stackLayers.length - 1 && (
+                <div class="absolute -bottom-2 left-1/2 -translate-x-1/2 text-cyan-700 text-xs">↓</div>
+              )}
+            </div>
+          ))}
+        </div>
+
+        <Prose>
+          <h2 id="signal-pdu">Signal と PDU — 言葉の整理</h2>
+          <p>
+            通信スタックを学ぶとき最初に混乱するのが、似た名前の単位が連発することだ。整理しておこう。
+          </p>
+
+          <table>
+            <thead>
+              <tr><th>単位</th><th>定義</th><th>例</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>Signal</code></td>
+                <td>意味を持つデータ片。SWC視点で扱う最小単位。</td>
+                <td><code>VehicleSpeed</code> (16bit, 0.01 km/h単位)</td>
+              </tr>
+              <tr>
+                <td><code>IPDU (Interaction Layer PDU)</code></td>
+                <td>Comが扱う、Signalをパックした論理メッセージ。</td>
+                <td>Speed + Gear + Lights を1パケットに</td>
+              </tr>
+              <tr>
+                <td><code>NPDU (Network Layer PDU)</code></td>
+                <td>ネットワーク層 (TP) のPDU。CAN-TP/DoIPなどで使う。</td>
+                <td>UDS応答(数百byte)のセグメント</td>
+              </tr>
+              <tr>
+                <td><code>LPDU (Data Link Layer PDU)</code></td>
+                <td>物理ネットワークが扱う単位。CANフレームに相当。</td>
+                <td>CAN ID + DLC + データ8byte</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <Spell type="rune" label="覚え方">
+            上から順に <strong>Signal → IPDU → LPDU</strong>。粒度がだんだん「物理寄り」になる。Comより上では「信号」、PduRより下では「PDU」と呼ぶ、と覚えると現場で混乱しない。
+          </Spell>
+
+          <h2 id="tx-flow">送信の旅路 — Rte_Write から CANバスへ</h2>
+
+          <h3>① SWC が信号に値をセット</h3>
+          <CodeBlock lang="c" title="SWC_Cluster.c">
+{`/* メータECUが車速を送信する */
+Rte_Write_TxSpeedPort_VehicleSpeed(6000);  /* 60.00 km/h */`}
+          </CodeBlock>
+          <p>
+            この時点でデータはRTE内部のバッファに置かれる。RTEは呼び出し方を <em>implicit / explicit</em> で切り替えるが、初学者はとりあえず「すぐにComに渡される」と理解してよい。
+          </p>
+
+          <h3>② Com が IPDU にパック</h3>
+          <p>
+            <code>Com_SendSignal</code> が呼ばれると、Comは事前定義された<strong>シグナル → IPDU内のビット位置</strong>マッピングに従い、内部バッファに書き込む。送信タイミング (周期 or イベント) に従ってIPDUがまとめて送出される。
+          </p>
+
+          <CodeBlock lang="c" title="Com.c (概念図)">
+{`Std_ReturnType Com_SendSignal(Com_SignalIdType id, const void* SignalDataPtr)
+{
+    /* 1. シグナル設定からIPDU IDとビット位置を取得 */
+    /* 2. IPDUバッファに書き込み (パッキング) */
+    /* 3. 送信モード次第で、即時 or 周期に従って下層へ */
+    return E_OK;
+}`}
+          </CodeBlock>
+
+          <h3>③ PduR が宛先層を判断</h3>
+          <p>
+            Comが「このIPDUを送出してくれ」と <code>PduR_ComTransmit</code> を呼ぶと、PduRは設定された<strong>ルーティングパス</strong>を見て、宛先を決定する。CAN経由なら <code>CanIf_Transmit</code>、LIN経由なら <code>LinIf_Transmit</code> を呼ぶ。
+          </p>
+
+          <h3>④ CanIf が CANフレームへ</h3>
+          <p>
+            CanIfはL-PDU(=CANフレーム) のIDとデータを構築し、適切なハードウェア送信ボックス(<em>HTH: Hardware Transmit Handle</em>) を選んで、MCAL Canドライバに渡す。
+          </p>
+
+          <h3>⑤ Can ドライバがレジスタへ書き込み</h3>
+          <CodeBlock lang="c" title="Can_<ベンダ>.c (概念図)">
+{`Std_ReturnType Can_Write(Can_HwHandleType Hth, const Can_PduType* PduInfo)
+{
+    /* 1. メールボックスが空いているか確認 */
+    /* 2. ID / DLC / Data をレジスタへ書き込み */
+    /* 3. TX要求ビットをセット */
+    return E_OK;
+}`}
+          </CodeBlock>
+
+          <h3>⑥ ハードウェアがバスに送出</h3>
+          <p>
+            CANコントローラがバス調停を行い、勝てば物理線にビット列を出す。SWCが書いた <code>6000</code> という値が、最終的にCAN差動信号として <em>120Ω終端</em> の銅線上を駆け抜ける。
+          </p>
+
+          <h2 id="rx-flow">受信の旅路 — 逆方向</h2>
+          <p>受信は単純に「逆順」と覚えればよい。</p>
+          <ol>
+            <li>CANコントローラがフレーム受信 → 割込み</li>
+            <li><code>Can</code> ドライバが ISR で <code>CanIf_RxIndication</code> 通知</li>
+            <li><code>CanIf</code> がメッセージID → PDU IDへ変換し、<code>PduR_*_RxIndication</code></li>
+            <li><code>PduR</code> がルーティング先(Com / CanTpなど) を判断</li>
+            <li><code>Com</code> がIPDUをアンパックし、シグナル単位で内部バッファに格納</li>
+            <li>SWCが <code>Rte_Read_*</code> でデータを取得</li>
+          </ol>
+
+          <Spell type="contract" label="重要な契約">
+            受信側のシグナル設定 (ビット位置・エンディアン・サイズ) が送信側と<strong>1ビットでも違えば</strong>、値は化ける。これはAUTOSAR設計でもっとも頻繁に起こる事故の一つ。<em>送受信のARXMLが同じシグナル定義を共有していること</em>を必ず確認する。
+          </Spell>
+
+          <h2 id="pdur">PduR の本懐 — なぜ存在するか</h2>
+          <p>
+            初学者は「PduRって何のためにあるの？ Comから直接CanIfを呼べばいいのに」と思いがちだ。それは半分正しく、半分間違っている。
+          </p>
+          <p>
+            PduRの真価は<strong>「ルーティング」</strong>にある。例えばゲートウェイECUを考えよう。CAN1で受けたメッセージをCAN2にそのまま転送し、同時に診断データをLINに分岐、別の信号はFlexRayへ — このような<strong>多対多のPDU転送</strong>を、Comに一切手を入れず<em>設定だけで</em>実現できるのがPduRだ。
+          </p>
+
+          <CodeBlock lang="text" title="設定例 (概念)">
+{`Routing Path #1:
+  CAN1 RX (ID 0x100) → Com (Vehicle信号)
+
+Routing Path #2 (Gateway):
+  CAN1 RX (ID 0x200) → CAN2 TX (ID 0x200)   /* バス間ブリッジ */
+
+Routing Path #3 (CanTp):
+  CAN1 RX (UDS要求) → Dcm 経由で診断応答
+                    → CanTpで分割 → CAN2へ
+`}
+          </CodeBlock>
+
+          <h2 id="gotcha">ハマりどころ</h2>
+
+          <h3>📍 シグナルのエンディアン</h3>
+          <p>
+            DBCで定義したIntel(LSB)とMotorola(MSB)を読み違えると、車速 60km/h が <code>15360 km/h</code> に化ける。<strong>ARXML/DBCのエンディアン定義を必ず確認</strong>。
+          </p>
+
+          <h3>📍 送信タイミングモード</h3>
+          <p>
+            Comの送信モードは <em>DIRECT</em> / <em>PERIODIC</em> / <em>MIXED</em> / <em>NONE</em> がある。例えばDIRECTは「シグナル書き込み即送信」、PERIODICは「周期送信、信号変化は次の周期で反映」。混在させると、想定外のタイミングでバスに乗らない。
+          </p>
+
+          <h3>📍 メールボックス枯渇</h3>
+          <p>
+            CANコントローラのHTHは有限。複数IDを単一メールボックスに割り当てる<strong>FullCAN / BasicCAN</strong> の設定を理解していないと、忙しいECUで送信遅延が起きる。
+          </p>
+
+          <h2 id="summary">まとめ</h2>
+          <ul>
+            <li>Com Stack は <strong>SWC → RTE → Com → PduR → CanIf → Can → HW</strong> の7階層</li>
+            <li>Signal は「意味のあるデータ」、IPDU/LPDU は「層ごとのデータ単位」</li>
+            <li>PduR は<strong>ルーティングの要</strong>。ゲートウェイECUの心臓部</li>
+            <li>送受信のARXMLでビット定義・エンディアン・タイミングを必ず一致させる</li>
+          </ul>
+          <p>
+            次の記事では、すべての通信や処理に共通する基盤 — <strong>AUTOSAR OS</strong> の世界を旅する。タスク、優先度、リソース、アラーム。リアルタイム制御を支える時間の魔術だ。
+          </p>
+        </Prose>
+
+        <nav class="mt-20 pt-10 border-t border-cyan-900/30 flex flex-col sm:flex-row items-stretch gap-3">
+          <a href="/topics/bsw/what-is-bsw" class="flex-1 group border border-cyan-900/40 hover:border-cyan-700 rounded-lg p-4 transition-colors">
+            <div class="font-mono text-[10px] text-cyan-700 tracking-widest mb-1">← PREV · BSW.01</div>
+            <div class="text-cyan-300 group-hover:text-cyan-100 transition-colors">BSWとは何か</div>
+          </a>
+          <a href="/topics/bsw/os" class="flex-1 group border border-cyan-900/40 hover:border-cyan-700 rounded-lg p-4 transition-colors text-right">
+            <div class="font-mono text-[10px] text-cyan-700 tracking-widest mb-1">NEXT · BSW.03 →</div>
+            <div class="text-cyan-300 group-hover:text-cyan-100 transition-colors">AUTOSAR OS</div>
+          </a>
+        </nav>
+      </article>
+
+      <aside class="hidden lg:block">
+        <div class="sticky top-28 border-l border-cyan-900/40 pl-5">
+          <div class="font-mono text-[10px] text-cyan-700 tracking-widest mb-4">// TABLE OF CONTENTS</div>
+          <ul class="space-y-3 text-sm">
+            {toc.map(t => (
+              <li>
+                <a href={`#${t.id}`} class="text-gray-500 hover:text-cyan-400 transition-colors block leading-snug">
+                  {t.label}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </aside>
+    </div>
+  </div>
+</Page>

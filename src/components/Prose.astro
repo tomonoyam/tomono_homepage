@@ -1,0 +1,113 @@
+---
+---
+<div class="prose-magic">
+  <slot />
+</div>
+
+<style is:global>
+  .prose-magic { color: #d1d5db; font-size: 16px; line-height: 1.85; }
+  .prose-magic h2 {
+    font-family: 'Noto Serif JP', Georgia, serif;
+    font-size: 1.875rem;
+    font-weight: 600;
+    color: #ffffff;
+    margin-top: 3.5rem;
+    margin-bottom: 1.25rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid rgba(0, 212, 255, 0.2);
+    position: relative;
+  }
+  .prose-magic h2::before {
+    content: '◈';
+    color: #00d4ff;
+    margin-right: 0.75rem;
+    opacity: 0.7;
+  }
+  .prose-magic h3 {
+    font-family: 'Noto Serif JP', Georgia, serif;
+    font-size: 1.375rem;
+    font-weight: 600;
+    color: #f3f4f6;
+    margin-top: 2.5rem;
+    margin-bottom: 1rem;
+  }
+  .prose-magic h3::before {
+    content: '▸';
+    color: #7c3aed;
+    margin-right: 0.5rem;
+  }
+  .prose-magic p { margin: 1rem 0; }
+  .prose-magic ul, .prose-magic ol { margin: 1rem 0; padding-left: 1.5rem; }
+  .prose-magic ul { list-style: none; }
+  .prose-magic ul li { position: relative; padding-left: 1.5rem; margin: 0.5rem 0; }
+  .prose-magic ul li::before {
+    content: '✦';
+    position: absolute;
+    left: 0;
+    color: #00d4ff;
+    opacity: 0.6;
+    font-size: 0.85em;
+    top: 0.25em;
+  }
+  .prose-magic ol li { margin: 0.5rem 0; padding-left: 0.5rem; }
+  .prose-magic strong { color: #00d4ff; font-weight: 600; }
+  .prose-magic em { color: #c084fc; font-style: normal; }
+  .prose-magic code {
+    font-family: 'JetBrains Mono', monospace;
+    background: rgba(0, 212, 255, 0.08);
+    color: #67e8f9;
+    padding: 0.15em 0.4em;
+    border-radius: 3px;
+    font-size: 0.9em;
+    border: 1px solid rgba(0, 212, 255, 0.15);
+  }
+  .prose-magic a {
+    color: #00d4ff;
+    text-decoration: none;
+    border-bottom: 1px dashed rgba(0, 212, 255, 0.4);
+    transition: all 0.2s;
+  }
+  .prose-magic a:hover {
+    color: #67e8f9;
+    border-bottom-color: #67e8f9;
+  }
+  .prose-magic hr {
+    border: none;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(0, 212, 255, 0.3), transparent);
+    margin: 3rem 0;
+  }
+  .prose-magic blockquote {
+    border-left: 3px solid rgba(124, 58, 237, 0.5);
+    padding: 0.5rem 1rem;
+    margin: 1.5rem 0;
+    color: #9ca3af;
+    font-style: italic;
+    background: rgba(124, 58, 237, 0.05);
+    border-radius: 0 4px 4px 0;
+  }
+  .prose-magic table {
+    width: 100%;
+    margin: 1.5rem 0;
+    border-collapse: collapse;
+    font-size: 0.95em;
+  }
+  .prose-magic table th {
+    text-align: left;
+    padding: 0.75rem;
+    border-bottom: 1px solid rgba(0, 212, 255, 0.3);
+    color: #00d4ff;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.85em;
+    font-weight: 500;
+    letter-spacing: 0.05em;
+  }
+  .prose-magic table td {
+    padding: 0.75rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    vertical-align: top;
+  }
+  .prose-magic table tr:hover td {
+    background: rgba(0, 212, 255, 0.03);
+  }
+</style>

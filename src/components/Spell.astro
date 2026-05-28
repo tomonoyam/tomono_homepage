@@ -1,0 +1,23 @@
+---
+interface Props {
+  label?: string;
+  type?: 'spell' | 'rune' | 'contract' | 'warning';
+}
+const { label, type = 'spell' } = Astro.props;
+
+const styleMap = {
+  spell:    { border: 'border-cyan-700/50',   bg: 'bg-cyan-950/30',   text: 'text-cyan-400',   icon: '✦', name: '詠唱' },
+  rune:     { border: 'border-purple-700/50', bg: 'bg-purple-950/30', text: 'text-purple-400', icon: '◈', name: 'ルーン' },
+  contract: { border: 'border-amber-700/50',  bg: 'bg-amber-950/30',  text: 'text-amber-400',  icon: '⎔', name: '契約' },
+  warning:  { border: 'border-red-700/50',    bg: 'bg-red-950/30',    text: 'text-red-400',    icon: '⚠', name: '注意' },
+};
+const s = styleMap[type];
+---
+<div class={`relative border-l-2 ${s.border} ${s.bg} pl-6 pr-5 py-5 my-8 rounded-r-lg`}>
+  <div class={`absolute -top-3 left-4 px-3 py-0.5 ${s.bg} border ${s.border} rounded font-mono text-[10px] ${s.text} tracking-widest`}>
+    <span class="mr-1">{s.icon}</span>{label ?? s.name}
+  </div>
+  <div class="text-gray-300 leading-relaxed">
+    <slot />
+  </div>
+</div>

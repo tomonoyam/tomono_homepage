@@ -1,0 +1,205 @@
+---
+import Page from '../../../layouts/Page.astro';
+import Breadcrumb from '../../../components/Breadcrumb.astro';
+import PageHeader from '../../../components/PageHeader.astro';
+import Prose from '../../../components/Prose.astro';
+import Spell from '../../../components/Spell.astro';
+import CodeBlock from '../../../components/CodeBlock.astro';
+
+const toc = [
+  { id: 'why-bsw', label: 'なぜBSWが必要か' },
+  { id: 'three-layers', label: '3層 + 複合ドライバ' },
+  { id: 'modules', label: '主要モジュールの役割' },
+  { id: 'rte', label: 'RTEとの境界' },
+  { id: 'summary', label: 'まとめ' },
+];
+---
+
+<Page title="BSWとは何か | AUTOSAR.MAGIC" description="AUTOSAR Basic Softwareの全体像。なぜBSWが必要なのか、3層構造の意味、主要モジュールの役割を魔法体系として読み解く。">
+  <div class="max-w-5xl mx-auto px-6">
+    <Breadcrumb items={[
+      { label: 'HOME', href: '/' },
+      { label: 'TOPICS', href: '/#topics' },
+      { label: 'BSW', href: '/topics/bsw' },
+      { label: 'WHAT IS BSW' },
+    ]} />
+
+    <PageHeader
+      chapter="BSW · #01 :: FOUNDATION"
+      title="BSWとは何か"
+      subtitle="世界の基盤魔術 — 術者たちが立つ大地そのもの。AUTOSARが描いたソフトウェア設計の中核を、最初から最後まで丁寧に解く。"
+      meta="読了時間: 約8分 · レベル: 入門 · 最終更新: 2025-04-01"
+      accent="cyan"
+    />
+
+    <div class="grid lg:grid-cols-[1fr_220px] gap-12">
+      <!-- Main content -->
+      <article>
+        <Prose>
+          <p>
+            AUTOSAR Classic Platformを初めて学ぶとき、最初に立ちはだかる壁が <strong>BSW (Basic Software)</strong> だ。仕様書を開けば、ComM、PduR、Dcm、Dem、NvM、MemIf、Crypto... と数十のモジュール名が並び、初学者は「全部覚えないといけないのか」と途方に暮れる。
+          </p>
+          <p>
+            だが心配はいらない。BSWは<em>意味のある構造</em>を持っており、その骨格さえ掴めば全体は一気に見通せる。本記事ではその「骨格」だけを抜き出して、魔法体系のメタファーで語り直していく。
+          </p>
+
+          <Spell type="spell" label="本記事のゴール">
+            この記事を読み終えると、AUTOSAR BSWの仕様書を開いたとき、各モジュールが<strong>どの層に属し、誰の呼び出しに応えるためにあるのか</strong>を一目で位置づけられるようになる。
+          </Spell>
+
+          <h2 id="why-bsw">なぜBSWが必要か</h2>
+          <p>
+            一台のECUを動かすには、無数の低レベル処理が要る。CANコントローラのレジスタを叩き、フラッシュへ書き込み、タイマ割込みを管理し、診断要求に応答する。これらを<strong>アプリケーションが直接書いていた時代</strong>もあった。だが、それは破綻した。
+          </p>
+          <p>
+            理由は単純だ。マイコンが変わるたびに、アプリケーションを全部書き直す羽目になる。サプライヤが変わるたびに、お互いのコードは噛み合わない。これでは「車載ソフトの再利用」は永遠に絵に描いた餅だ。
+          </p>
+          <p>
+            そこでAUTOSARは決めた。<strong>「アプリケーションは魔導書の上層だけで詠唱し、地下に降りてはならない」</strong>。地下の魔術 — つまりハードウェアアクセス、通信、診断、メモリ管理 — はすべてBSWに閉じ込め、上層からは標準APIだけが見えるようにした。
+          </p>
+
+          <Spell type="contract" label="AUTOSARの契約">
+            アプリケーション (SWC) はBSWの内部実装を知らない。BSWはアプリケーションが誰なのかを知らない。両者の間に立つのが <strong>RTE (Runtime Environment)</strong> という召喚陣だ。
+          </Spell>
+
+          <h2 id="three-layers">3層 + 複合ドライバ</h2>
+          <p>
+            BSWは大きく次の3層に分かれる。下にいくほどハードウェア寄り、上にいくほど抽象的になる。
+          </p>
+
+          <h3>1. Services Layer — 高位魔術</h3>
+          <p>
+            ECU全体に対するサービス層。<code>Os</code>(タスク管理)、<code>ComM</code>(通信モード)、<code>Dcm</code>(診断通信)、<code>NvM</code>(不揮発メモリ)、<code>Crypto</code>(暗号)など。
+          </p>
+          <p>
+            このレイヤのモジュールは、<strong>ハードウェアに依存しない</strong>のが特徴。同じ仕様書通りに書かれていれば、マイコンが変わっても動く。
+          </p>
+
+          <h3>3. ECU Abstraction Layer — 中位魔術</h3>
+          <p>
+            マイコン<em>外</em>のハードウェアを抽象化する層。たとえば<code>CanIf</code>はCANトランシーバの存在を上位から隠し、<code>EepIf</code>はEEPROMチップの違いを隠す。
+          </p>
+          <p>
+            この層は<strong>ECUハードの違い</strong>を吸収する役目。マイコンは同じでも基板が違えば、ここの設定だけ調整すればよい。
+          </p>
+
+          <h3>3. Microcontroller Abstraction Layer (MCAL) — 低位魔術</h3>
+          <p>
+            マイコン固有のハードウェアを直接制御する最下層。<code>Can</code>、<code>Spi</code>、<code>Adc</code>、<code>Dio</code>、<code>Port</code>、<code>Pwm</code>、<code>Gpt</code>など、ペリフェラルごとにモジュールがある。
+          </p>
+          <p>
+            このレイヤは<strong>半導体ベンダが提供する</strong>のが基本。Renesas RH850 用、Infineon AURIX 用、NXP S32 用 — それぞれ別物だが、上位から見たAPIは同じ。
+          </p>
+
+          <h3>(+α) Complex Drivers (CDD) — 禁忌の魔術</h3>
+          <p>
+            正規の階層構造では実現できない要件 — たとえば<strong>マイクロ秒オーダのエンジン制御</strong>や、AUTOSAR未対応の特殊ハードウェア — のために、層を貫いてマイコンに直接アクセスする「特例」のドライバ。
+          </p>
+          <p>
+            設計の自由度は高いが、再利用性は犠牲になる。<em>本当に必要なときだけ</em>使う禁術である。
+          </p>
+
+          <h2 id="modules">主要モジュールの役割</h2>
+          <p>
+            すべてを暗記する必要はない。だが、次の表に挙げる<strong>15個程度</strong>を頭に入れておくと、ARXMLや設計書を読んだときに迷子にならない。
+          </p>
+
+          <table>
+            <thead>
+              <tr>
+                <th>モジュール</th>
+                <th>層</th>
+                <th>役割</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td><code>Os</code></td><td>Services</td><td>タスク・ISR・アラームの管理</td></tr>
+              <tr><td><code>EcuM</code></td><td>Services</td><td>ECU起動・シャットダウン・モード遷移</td></tr>
+              <tr><td><code>BswM</code></td><td>Services</td><td>BSW内のモード調停</td></tr>
+              <tr><td><code>ComM</code></td><td>Services</td><td>通信チャネルのアクティブ管理</td></tr>
+              <tr><td><code>Com</code></td><td>Services</td><td>信号(Signal)単位での通信API</td></tr>
+              <tr><td><code>PduR</code></td><td>Services</td><td>PDU(プロトコル単位)のルーティング</td></tr>
+              <tr><td><code>Dcm</code></td><td>Services</td><td>UDS診断通信(リクエスト/レスポンス)</td></tr>
+              <tr><td><code>Dem</code></td><td>Services</td><td>DTC(故障コード)管理</td></tr>
+              <tr><td><code>NvM</code></td><td>Services</td><td>不揮発メモリの読み書き(ブロック単位)</td></tr>
+              <tr><td><code>CanIf</code></td><td>ECU Abstr</td><td>CANインターフェース(コントローラ抽象化)</td></tr>
+              <tr><td><code>CanTp</code></td><td>ECU Abstr</td><td>ISO-TP(CAN上のセグメント転送)</td></tr>
+              <tr><td><code>MemIf</code></td><td>ECU Abstr</td><td>Fee/EaのフロントエンドAPI</td></tr>
+              <tr><td><code>Can</code></td><td>MCAL</td><td>CANコントローラのドライバ</td></tr>
+              <tr><td><code>Spi</code></td><td>MCAL</td><td>SPIドライバ</td></tr>
+              <tr><td><code>Port/Dio</code></td><td>MCAL</td><td>GPIOの初期化と入出力</td></tr>
+            </tbody>
+          </table>
+
+          <h2 id="rte">RTEとの境界</h2>
+          <p>
+            BSWの最上部に位置するのが <strong>RTE (Runtime Environment)</strong> だ。RTEはBSWの一部とされることもあれば、独立した層として描かれることもある。
+          </p>
+          <p>
+            役割は明確で、<strong>SWCとBSW (および他のSWC) との間のすべての通信</strong>を仲介する。SWCは <code>Rte_Write_*</code>, <code>Rte_Read_*</code>, <code>Rte_Call_*</code> を呼ぶだけでよく、その先がCAN送信なのか、別タスクの関数呼び出しなのかは知らなくていい。
+          </p>
+
+          <CodeBlock lang="c" title="SWC.c — 召喚陣を呼ぶ">
+{`/* SWCはRTE経由で呼ぶだけ。BSWの存在を知らない。 */
+#include "Rte_VehicleSpeed.h"
+
+void RunnableCalcSpeed(void)
+{
+    uint16 raw;
+    Std_ReturnType ret;
+
+    ret = Rte_Read_VehicleSpeedIn_Speed(&raw);
+    if (ret == RTE_E_OK) {
+        uint16 kmph = raw / 100;
+        Rte_Write_VehicleSpeedOut_Speed(kmph);
+    }
+}`}
+          </CodeBlock>
+
+          <Spell type="rune" label="ルーンの一致">
+            <code>Rte_Read_*</code> という詠唱は、設計ツール(ARXML上のポート)で定義した名前と一致していなければならない。<em>名前は契約であり、誤字は世界を壊す。</em>
+          </Spell>
+
+          <h2 id="summary">まとめ</h2>
+          <ul>
+            <li>BSWは<strong>アプリケーションをハードウェアから守る基盤魔術</strong>である</li>
+            <li>3層構造 — <strong>Services / ECU Abstraction / MCAL</strong> + 例外的な Complex Drivers</li>
+            <li>下層ほどハード寄り、上層ほど抽象的。SWCは最上層のRTE経由で詠唱する</li>
+            <li>すべてのモジュールを暗記する必要はない。骨格を持って、必要なときに辞書を引け</li>
+          </ul>
+          <p>
+            次の記事では、BSWの中でも特に複雑な <strong>通信スタック (Com Stack)</strong> を、Application → Com → PduR → CanIf → Can と層を貫きながら解剖していく。
+          </p>
+        </Prose>
+
+        <!-- Next nav -->
+        <nav class="mt-20 pt-10 border-t border-cyan-900/30 flex flex-col sm:flex-row items-stretch gap-3">
+          <a href="/topics/bsw" class="flex-1 group border border-cyan-900/40 hover:border-cyan-700 rounded-lg p-4 transition-colors">
+            <div class="font-mono text-[10px] text-cyan-700 tracking-widest mb-1">← 章扉</div>
+            <div class="text-cyan-300 group-hover:text-cyan-100 transition-colors">BSW章へ戻る</div>
+          </a>
+          <a href="/topics/bsw/com-stack" class="flex-1 group border border-cyan-900/40 hover:border-cyan-700 rounded-lg p-4 transition-colors text-right">
+            <div class="font-mono text-[10px] text-cyan-700 tracking-widest mb-1">NEXT · BSW.02 →</div>
+            <div class="text-cyan-300 group-hover:text-cyan-100 transition-colors">通信スタック — Com Stack</div>
+          </a>
+        </nav>
+      </article>
+
+      <!-- TOC -->
+      <aside class="hidden lg:block">
+        <div class="sticky top-28 border-l border-cyan-900/40 pl-5">
+          <div class="font-mono text-[10px] text-cyan-700 tracking-widest mb-4">// TABLE OF CONTENTS</div>
+          <ul class="space-y-3 text-sm">
+            {toc.map(t => (
+              <li>
+                <a href={`#${t.id}`} class="text-gray-500 hover:text-cyan-400 transition-colors block leading-snug">
+                  {t.label}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </aside>
+    </div>
+  </div>
+</Page>

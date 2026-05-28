@@ -1,0 +1,19 @@
+---
+interface Props {
+  lang?: string;
+  title?: string;
+}
+const { lang = 'c', title } = Astro.props;
+---
+<div class="my-8 border border-cyan-900/40 rounded-lg overflow-hidden bg-[#06060f]/80">
+  <div class="flex items-center justify-between px-4 py-2 border-b border-cyan-900/40 bg-[#0a0a1f]/80">
+    <div class="flex items-center gap-2">
+      <div class="w-2 h-2 rounded-full bg-red-500/60"></div>
+      <div class="w-2 h-2 rounded-full bg-yellow-500/60"></div>
+      <div class="w-2 h-2 rounded-full bg-green-500/60"></div>
+      {title && <span class="ml-3 font-mono text-[11px] text-gray-500">{title}</span>}
+    </div>
+    <span class="font-mono text-[10px] text-cyan-700 tracking-widest">{lang.toUpperCase()}</span>
+  </div>
+  <pre class="p-4 overflow-x-auto text-[13px] leading-relaxed font-mono text-gray-300"><slot /></pre>
+</div>

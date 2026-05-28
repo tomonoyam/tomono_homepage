@@ -1,0 +1,276 @@
+---
+import Page from '../../../layouts/Page.astro';
+import Breadcrumb from '../../../components/Breadcrumb.astro';
+import PageHeader from '../../../components/PageHeader.astro';
+import Prose from '../../../components/Prose.astro';
+import Spell from '../../../components/Spell.astro';
+import CodeBlock from '../../../components/CodeBlock.astro';
+
+const toc = [
+  { id: 'osek', label: 'OSEKという源流' },
+  { id: 'task', label: 'タスク — 時間を斬る' },
+  { id: 'priority', label: '優先度とスケジューリング' },
+  { id: 'isr', label: 'ISR — 割込みの二類型' },
+  { id: 'resource', label: 'リソース — 優先度継承の魔術' },
+  { id: 'alarm', label: 'アラームとカウンタ' },
+  { id: 'scaling', label: 'Scalability Class' },
+  { id: 'summary', label: 'まとめ' },
+];
+---
+
+<Page title="AUTOSAR OS — 時を刻む魔術 | AUTOSAR.MAGIC" description="AUTOSAR OSの基礎。OSEK由来のタスク・ISR・リソース・アラームから、リアルタイム性を保証する仕組みまで。">
+  <div class="max-w-5xl mx-auto px-6">
+    <Breadcrumb items={[
+      { label: 'HOME', href: '/' },
+      { label: 'TOPICS', href: '/#topics' },
+      { label: 'BSW', href: '/topics/bsw' },
+      { label: 'OS' },
+    ]} />
+
+    <PageHeader
+      chapter="BSW · #03 :: REAL-TIME OS"
+      title="AUTOSAR OS"
+      subtitle="時を刻む魔術 — タスク、優先度、リソース、アラーム。リアルタイム制御という掟を、有限のCPU資源で守る術。"
+      meta="読了時間: 約12分 · レベル: 中級 · 最終更新: 2025-04-10"
+      accent="purple"
+    />
+
+    <div class="grid lg:grid-cols-[1fr_220px] gap-12">
+      <article>
+        <Prose>
+          <p>
+            車載ECUに搭載されるOSは、PCのそれとは似て非なるものだ。<strong>Linux的なフェアスケジューリングは無い</strong>。プロセスもファイルシステムも無い。あるのは「いついかなる時もデッドラインを守る」という、ただ一つの掟である。
+          </p>
+          <p>
+            その掟を守るために設計されたのが <strong>AUTOSAR OS</strong>。OSEK/VDX を源流とする静的・優先度ベースのリアルタイムOSだ。
+          </p>
+
+          <Spell type="spell" label="この記事のゴール">
+            タスク・ISR・リソース・アラームという4つの基本概念を理解し、なぜAUTOSAR OSが<strong>静的設定</strong>・<strong>固定優先度</strong>・<strong>非preemptiveも選べる</strong>という設計を取っているのか、その理由まで説明できるようになる。
+          </Spell>
+
+          <h2 id="osek">OSEKという源流</h2>
+          <p>
+            AUTOSAR OSの起源は、1990年代にドイツ自動車業界が策定した <strong>OSEK/VDX</strong> という仕様にある。OSEKは「車載組み込み向けに、極小・高速・静的なRTOS」を目指した。
+          </p>
+          <p>
+            AUTOSAR OSはOSEKの上位互換として設計されており、OSEKアプリは原則そのまま動く。ただし、AUTOSAR独自の拡張(スケジュールテーブル・メモリ保護・タイミング保護など)が加わっている。
+          </p>
+
+          <Spell type="rune" label="設計思想">
+            ① <strong>静的</strong>: タスクや優先度は<em>コンパイル時に確定</em>。動的生成は無い。<br/>
+            ② <strong>軽量</strong>: 数KB ROM・数百B RAMで動く実装も。<br/>
+            ③ <strong>決定論的</strong>: スケジューリングの結果は事前に計算できる。
+          </Spell>
+
+          <h2 id="task">タスク — 時間を斬る基本単位</h2>
+          <p>
+            AUTOSAR OSにおけるタスクは、Linuxの「プロセス」よりも「スレッド」に近い、極めて軽量な実行単位だ。スタックは静的に確保され、優先度は固定される。
+          </p>
+
+          <h3>2種類のタスク</h3>
+          <ul>
+            <li><strong>Basic Task</strong> — 一度走り出すと終了するまで待ち状態(WAITING) に入れない。シンプル・低オーバヘッド。</li>
+            <li><strong>Extended Task</strong> — <code>WaitEvent()</code> でイベント待ちができる。リソース消費は増えるが柔軟。</li>
+          </ul>
+
+          <CodeBlock lang="c" title="Tasks.c">
+{`/* OIL/ARXMLで定義した Basic Task の本体 */
+TASK(TaskPeriodic10ms)
+{
+    /* 10msごとに呼ばれる軽量処理 */
+    ReadSensors();
+    UpdateControl();
+
+    TerminateTask();   /* Basic Task は必ず Terminate で終わる */
+}
+
+TASK(TaskCommReceive)
+{
+    EventMaskType ev;
+
+    for (;;) {
+        WaitEvent(EV_CAN_RX);          /* Extended Task のみ可能 */
+        GetEvent(TaskCommReceive, &ev);
+        ClearEvent(ev);
+
+        if (ev & EV_CAN_RX) {
+            ProcessReceivedFrame();
+        }
+    }
+}`}
+          </CodeBlock>
+
+          <h2 id="priority">優先度とスケジューリング</h2>
+          <p>
+            AUTOSAR OSは<strong>固定優先度プリエンプティブ</strong>が基本。値が大きいほど高優先度(注: OSEK仕様では「数値が大きいほど高優先度」)。
+          </p>
+
+          <h3>FullPreemptive vs NonPreemptive</h3>
+          <p>
+            タスクは個別に preemptable / non-preemptable を設定できる。これがAUTOSAR OSの<strong>面白く、かつ難しい</strong>ところだ。
+          </p>
+          <table>
+            <thead>
+              <tr><th>モード</th><th>挙動</th><th>使いどころ</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Full</strong></td>
+                <td>高優先度Readyタスクが現れたら即切り替え</td>
+                <td>応答性最優先の制御タスク</td>
+              </tr>
+              <tr>
+                <td><strong>Non</strong></td>
+                <td>自分が終わる(Terminate/Wait) まで誰も奪えない</td>
+                <td>クリティカルセクションを内包する処理</td>
+              </tr>
+              <tr>
+                <td><strong>Mixed</strong></td>
+                <td>タスクごとに切り替え可否を設定</td>
+                <td>大半の実プロジェクト</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <Spell type="warning" label="ハマりどころ">
+            NonPreemptive を多用すると、<strong>高優先度の制御タスクが走れない</strong>事態が発生する。タスク設計は<em>最悪応答時間 (WCRT)</em> を念頭に。
+          </Spell>
+
+          <h2 id="isr">ISR — 割込みの二類型</h2>
+          <p>
+            AUTOSAR OSのISR (Interrupt Service Routine) には2種類ある。
+          </p>
+          <ul>
+            <li>
+              <strong>Category 1</strong> — OSの管理外。最小オーバヘッドで実行されるが、OSのAPIは<em>呼べない</em>。
+            </li>
+            <li>
+              <strong>Category 2</strong> — OS管理下。<code>ActivateTask()</code> や <code>SetEvent()</code> を呼べる。タスクの起床に使う。
+            </li>
+          </ul>
+
+          <CodeBlock lang="c" title="Isr.c">
+{`/* Category 2: CAN受信割込みでタスクを起こす */
+ISR(CanRxIsr)
+{
+    /* レジスタからフレーム取り出し */
+    Can_HwRxIndication();
+
+    /* Extended TaskにEventを送る */
+    SetEvent(TaskCommReceive, EV_CAN_RX);
+}`}
+          </CodeBlock>
+
+          <h2 id="resource">リソース — 優先度継承の魔術</h2>
+          <p>
+            複数のタスクが共有データを触るとき、<strong>排他制御</strong>が必要になる。AUTOSAR OSは <em>Priority Ceiling Protocol (PCP)</em> という美しい仕組みでこれを解決する。
+          </p>
+
+          <CodeBlock lang="c" title="Shared.c">
+{`TASK(TaskLow)
+{
+    GetResource(RES_SharedData);
+    /* この瞬間、TaskLowの優先度は RES_SharedDataを使う全タスクの最高優先度に
+       一時的に引き上げられる(Ceiling) */
+    UpdateSharedBuffer();
+    ReleaseResource(RES_SharedData);   /* 元の優先度に戻る */
+
+    TerminateTask();
+}`}
+          </CodeBlock>
+
+          <Spell type="rune" label="PCPの利点">
+            ① <strong>デッドロックが発生しない</strong> (証明可能)<br/>
+            ② <strong>優先度逆転の最大時間が計算できる</strong><br/>
+            ③ <strong>カーネルの実装が軽い</strong>
+          </Spell>
+
+          <h2 id="alarm">アラームとカウンタ</h2>
+          <p>
+            周期処理を実現するために、AUTOSAR OSは <strong>Counter</strong> と <strong>Alarm</strong> を提供する。
+          </p>
+          <ul>
+            <li><strong>Counter</strong> — ハードウェアタイマやソフトカウンタ。「時刻」を刻む。</li>
+            <li><strong>Alarm</strong> — Counterが特定値に達したときに、タスクを起こす or イベントを送る or コールバックを呼ぶ。</li>
+          </ul>
+
+          <CodeBlock lang="c" title="StartupHook.c">
+{`/* 起動時に10ms周期アラームを設定 */
+void StartupHook(void)
+{
+    /* 1tick = 1ms と仮定 */
+    SetRelAlarm(AlarmPeriodic10ms, 10, 10);
+    /*               ↑ Alarm名      ↑初回 ↑周期 */
+}
+
+ALARMCALLBACK(AlarmPeriodic10msCB)  /* もしくは ActivateTask */
+{
+    /* 10msごとにここが呼ばれる */
+    ActivateTask(TaskPeriodic10ms);
+}`}
+          </CodeBlock>
+
+          <h3>Schedule Table — AUTOSARの拡張</h3>
+          <p>
+            OSEK由来のAlarmに加え、AUTOSARは <strong>Schedule Table</strong> という、より洗練された周期スケジューリング機構を持つ。複数の Expiry Point を持つ「時刻表」で、同期(Synchronization)もサポート — Time-Triggered系のシステムで重要だ。
+          </p>
+
+          <h2 id="scaling">Scalability Class (SC1〜SC4)</h2>
+          <p>
+            AUTOSAR OSは要件に応じて4段階の機能セットを選べる。
+          </p>
+          <table>
+            <thead>
+              <tr><th>SC</th><th>特徴</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>SC1</td><td>基本機能のみ。OSEKと同等。</td></tr>
+              <tr><td>SC2</td><td>+ Timing Protection (タイミング保護)</td></tr>
+              <tr><td>SC3</td><td>+ Memory Protection (メモリ保護 / OS-Application)</td></tr>
+              <tr><td>SC4</td><td>SC2 + SC3 のフル装備。ASIL-D相当の要件で使用。</td></tr>
+            </tbody>
+          </table>
+
+          <h2 id="summary">まとめ</h2>
+          <ul>
+            <li>AUTOSAR OSはOSEK起源の<strong>静的・固定優先度・リアルタイムOS</strong></li>
+            <li><strong>タスク</strong>は Basic/Extended の2種、<strong>ISR</strong>は Cat1/Cat2 の2種</li>
+            <li><strong>リソース</strong>は Priority Ceiling Protocol でデッドロックを完全排除</li>
+            <li><strong>Alarm / Schedule Table</strong> で時間駆動スケジューリング</li>
+            <li>機能安全要件に応じて <strong>SC1〜SC4</strong> を選択</li>
+          </ul>
+          <p>
+            BSW章の入口はここまで。次は <strong>RTE章</strong> へ降りていく。SWCとBSWを繋ぐ召喚陣 — RTEがどのように生成され、何を担うのかを解き明かそう。
+          </p>
+        </Prose>
+
+        <nav class="mt-20 pt-10 border-t border-cyan-900/30 flex flex-col sm:flex-row items-stretch gap-3">
+          <a href="/topics/bsw/com-stack" class="flex-1 group border border-cyan-900/40 hover:border-cyan-700 rounded-lg p-4 transition-colors">
+            <div class="font-mono text-[10px] text-cyan-700 tracking-widest mb-1">← PREV · BSW.02</div>
+            <div class="text-cyan-300 group-hover:text-cyan-100 transition-colors">通信スタック — Com Stack</div>
+          </a>
+          <a href="/topics/bsw" class="flex-1 group border border-cyan-900/40 hover:border-cyan-700 rounded-lg p-4 transition-colors text-right">
+            <div class="font-mono text-[10px] text-cyan-700 tracking-widest mb-1">章扉 →</div>
+            <div class="text-cyan-300 group-hover:text-cyan-100 transition-colors">BSW章へ戻る</div>
+          </a>
+        </nav>
+      </article>
+
+      <aside class="hidden lg:block">
+        <div class="sticky top-28 border-l border-cyan-900/40 pl-5">
+          <div class="font-mono text-[10px] text-cyan-700 tracking-widest mb-4">// TABLE OF CONTENTS</div>
+          <ul class="space-y-3 text-sm">
+            {toc.map(t => (
+              <li>
+                <a href={`#${t.id}`} class="text-gray-500 hover:text-cyan-400 transition-colors block leading-snug">
+                  {t.label}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </aside>
+    </div>
+  </div>
+</Page>

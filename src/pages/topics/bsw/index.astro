@@ -1,0 +1,254 @@
+---
+import Page from '../../../layouts/Page.astro';
+import Breadcrumb from '../../../components/Breadcrumb.astro';
+import PageHeader from '../../../components/PageHeader.astro';
+
+const articles = [
+  {
+    slug: 'what-is-bsw',
+    no: '01',
+    title: 'BSWとは何か',
+    sub: '世界の基盤魔術 — その正体',
+    desc: 'なぜAUTOSARはBSWを必要としたのか。3層構造の意味と、各モジュールが担う役割を魔法体系として読み解く。',
+    level: '入門',
+    levelColor: 'text-green-400 border-green-800/50',
+    time: '8分',
+  },
+  {
+    slug: 'com-stack',
+    no: '02',
+    title: '通信スタック',
+    sub: 'Com Stack — 呪文を伝達する魔導機構',
+    desc: 'CAN/CAN-FDの物理層から、PduR、Com、上位のSWCまで。データが層を貫いて流れる仕組みを解剖する。',
+    level: '中級',
+    levelColor: 'text-blue-400 border-blue-800/50',
+    time: '15分',
+  },
+  {
+    slug: 'os',
+    no: '03',
+    title: 'AUTOSAR OS',
+    sub: '時を刻む魔術 — タスクと優先度',
+    desc: 'OSEKを源流とするAUTOSAR OS。タスク・ISR・アラーム・リソースから、リアルタイム性を保証する仕組みまで。',
+    level: '中級',
+    levelColor: 'text-blue-400 border-blue-800/50',
+    time: '12分',
+  },
+];
+
+const layers = [
+  {
+    en: 'Services Layer',
+    jp: 'サービス層',
+    sub: '高位魔術 — OS, Com, Diag, Mem',
+    desc: 'ハードウェアから独立した、ECU全体に対するサービス群。OS・通信サービス・診断・メモリ管理など、上位の術者(SWC)が呼び出す抽象API。',
+    modules: ['Os', 'ComM', 'NM', 'Dcm', 'Dem', 'NvM', 'MemIf'],
+    color: 'purple',
+  },
+  {
+    en: 'ECU Abstraction Layer',
+    jp: 'ECU抽象層',
+    sub: '中位魔術 — 周辺機構の象徴化',
+    desc: 'マイコン以外のECUのハードウェア(外部メモリ、トランシーバなど)を抽象化する層。物理的な配線を、論理的な信号として上位に伝える。',
+    modules: ['CanIf', 'LinIf', 'EepIf', 'FlsIf', 'PduR'],
+    color: 'blue',
+  },
+  {
+    en: 'Microcontroller Abstraction Layer',
+    jp: 'マイコン抽象層 (MCAL)',
+    sub: '低位魔術 — レジスタへの直接介入',
+    desc: 'マイコン固有のハードウェアを直接制御する最下層。レジスタアクセス、割込み、DMA、ADCなど。半導体ベンダが提供することが多い。',
+    modules: ['Can', 'Spi', 'Adc', 'Dio', 'Pwm', 'Port', 'Gpt'],
+    color: 'cyan',
+  },
+  {
+    en: 'Complex Drivers',
+    jp: '複合ドライバ',
+    sub: '禁忌の魔術 — 階層を貫く特殊術',
+    desc: '通常のAUTOSAR層構造では実現できない、低レイテンシ・特殊用途のドライバ。エンジン制御の高速処理など、層を貫いてマイコンに直接アクセスする。',
+    modules: ['CDD'],
+    color: 'amber',
+  },
+];
+
+const colorMap: Record<string, { border: string; bg: string; text: string; bg2: string }> = {
+  purple: { border: 'border-purple-800/60', bg: 'bg-purple-950/30', text: 'text-purple-400', bg2: 'bg-purple-500/10' },
+  blue:   { border: 'border-blue-800/60',   bg: 'bg-blue-950/30',   text: 'text-blue-400',   bg2: 'bg-blue-500/10' },
+  cyan:   { border: 'border-cyan-800/60',   bg: 'bg-cyan-950/30',   text: 'text-cyan-400',   bg2: 'bg-cyan-500/10' },
+  amber:  { border: 'border-amber-800/60',  bg: 'bg-amber-950/30',  text: 'text-amber-400',  bg2: 'bg-amber-500/10' },
+};
+---
+
+<Page title="BSW — 世界の基盤魔術 | AUTOSAR.MAGIC" description="AUTOSAR Basic Software (BSW) の全体像。3層構造と主要モジュール、関連記事をまとめた章扉。">
+  <div class="max-w-6xl mx-auto px-6">
+    <Breadcrumb items={[
+      { label: 'HOME', href: '/' },
+      { label: 'TOPICS', href: '/#topics' },
+      { label: 'BSW' },
+    ]} />
+
+    <PageHeader
+      chapter="CHAPTER 03 :: BASIC SOFTWARE"
+      title="BSW — 世界の基盤魔術"
+      subtitle="ECUという世界を支える、最下層から最上層までの魔術体系。アプリケーションが奏でるすべての呪文は、この基盤の上に成り立っている。"
+      meta="AUTOSAR CP · Basic Software Stack · Module Reference"
+      accent="cyan"
+    />
+
+    <!-- Intro -->
+    <section class="mb-20">
+      <div class="grid md:grid-cols-3 gap-6">
+        <div class="md:col-span-2 space-y-5 text-gray-300 leading-relaxed">
+          <p>
+            <span class="text-cyan-400 font-semibold">BSW (Basic Software)</span> は、AUTOSAR Classic Platformにおける土台そのものだ。アプリケーション層のソフトウェアコンポーネント (SWC) が「術者」だとすれば、BSWは彼らが立つ<span class="text-purple-400">「魔法陣の地」</span>である。
+          </p>
+          <p>
+            通信、診断、メモリ管理、OS、ハードウェアアクセス — これらの基盤魔術がなければ、いかなる呪文も発動しない。逆に、BSWさえ整っていれば、術者は土地の流儀を一切気にせず詠唱に集中できる。これがAUTOSARの設計思想だ。
+          </p>
+          <p>
+            この章では、BSWの<span class="text-cyan-400">3層 + 複合ドライバ</span>の構造を解き明かし、代表モジュールの役割を順に追っていく。
+          </p>
+        </div>
+
+        <!-- Stats card -->
+        <div class="border border-cyan-900/50 rounded-lg bg-[#0a0a1f]/60 p-5">
+          <div class="font-mono text-[10px] text-cyan-700 tracking-widest mb-4">BSW.STATS</div>
+          <dl class="space-y-3 font-mono text-xs">
+            <div class="flex justify-between border-b border-cyan-900/30 pb-2">
+              <dt class="text-gray-500">層構造</dt><dd class="text-cyan-300">3 + α</dd>
+            </div>
+            <div class="flex justify-between border-b border-cyan-900/30 pb-2">
+              <dt class="text-gray-500">標準モジュール数</dt><dd class="text-cyan-300">80+</dd>
+            </div>
+            <div class="flex justify-between border-b border-cyan-900/30 pb-2">
+              <dt class="text-gray-500">設定形式</dt><dd class="text-cyan-300">ARXML</dd>
+            </div>
+            <div class="flex justify-between">
+              <dt class="text-gray-500">推奨開発フロー</dt><dd class="text-cyan-300">RTE経由</dd>
+            </div>
+          </dl>
+        </div>
+      </div>
+    </section>
+
+    <!-- Layered architecture -->
+    <section class="mb-24">
+      <div class="flex items-center gap-4 mb-12">
+        <div class="h-px flex-1 bg-gradient-to-r from-transparent to-cyan-800/50"></div>
+        <span class="font-mono text-xs text-cyan-600 tracking-widest px-4">// LAYERED ARCHITECTURE</span>
+        <div class="h-px flex-1 bg-gradient-to-l from-transparent to-cyan-800/50"></div>
+      </div>
+
+      <h2 class="text-2xl md:text-3xl font-serif font-semibold text-white text-center mb-3">
+        4つの階層
+      </h2>
+      <p class="text-gray-500 text-sm text-center mb-12 font-mono">Stack visualization</p>
+
+      <div class="space-y-3">
+        <!-- Application layer (just for context) -->
+        <div class="border border-gray-800/60 rounded-lg bg-gray-950/40 p-5">
+          <div class="flex items-center justify-between flex-wrap gap-2">
+            <div>
+              <div class="font-mono text-[10px] text-gray-600 tracking-widest mb-1">APPLICATION (out of BSW scope)</div>
+              <div class="text-gray-500 font-serif text-lg">術者の領域 — SWC / RTE</div>
+            </div>
+            <div class="text-gray-700 font-mono text-xs">↑ 呼び出し</div>
+          </div>
+        </div>
+
+        {layers.map(layer => {
+          const c = colorMap[layer.color];
+          return (
+            <div class={`group relative border ${c.border} rounded-lg ${c.bg} p-6 hover:scale-[1.01] transition-transform`}>
+              <!-- Side glyph -->
+              <div class={`absolute top-6 right-6 text-3xl ${c.text} opacity-30 group-hover:opacity-70 transition-opacity`}>◆</div>
+
+              <div class="flex flex-col md:flex-row md:items-start gap-6">
+                <!-- Left meta -->
+                <div class="md:w-64 shrink-0">
+                  <div class={`font-mono text-[10px] ${c.text} tracking-widest mb-1`}>{layer.en}</div>
+                  <div class="text-xl font-serif font-semibold text-white mb-1">{layer.jp}</div>
+                  <div class={`text-xs ${c.text} font-light italic`}>{layer.sub}</div>
+                </div>
+
+                <!-- Right desc -->
+                <div class="flex-1 space-y-4">
+                  <p class="text-gray-400 text-sm leading-relaxed">{layer.desc}</p>
+                  <div class="flex flex-wrap gap-1.5">
+                    {layer.modules.map(m => (
+                      <span class={`font-mono text-[11px] px-2 py-0.5 ${c.bg2} ${c.text} border ${c.border} rounded`}>
+                        {m}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+
+        <!-- MCU at bottom -->
+        <div class="border border-green-800/40 rounded-lg bg-green-950/20 p-5">
+          <div class="flex items-center justify-between flex-wrap gap-2">
+            <div>
+              <div class="font-mono text-[10px] text-green-700 tracking-widest mb-1">HARDWARE</div>
+              <div class="text-gray-400 font-serif text-lg">魔法石 — Microcontroller / ECU HW</div>
+            </div>
+            <div class="text-green-800 font-mono text-xs">↓ レジスタ・ピン</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Articles -->
+    <section class="mb-24">
+      <div class="flex items-center gap-4 mb-12">
+        <div class="h-px flex-1 bg-gradient-to-r from-transparent to-cyan-800/50"></div>
+        <span class="font-mono text-xs text-cyan-600 tracking-widest px-4">// CHAPTER ARTICLES</span>
+        <div class="h-px flex-1 bg-gradient-to-l from-transparent to-cyan-800/50"></div>
+      </div>
+
+      <h2 class="text-2xl md:text-3xl font-serif font-semibold text-white text-center mb-3">
+        この章の記事
+      </h2>
+      <p class="text-gray-500 text-sm text-center mb-12 font-mono">Entries in this chapter</p>
+
+      <div class="grid md:grid-cols-3 gap-6">
+        {articles.map(a => (
+          <a href={`/topics/bsw/${a.slug}`} class="group relative border border-cyan-900/50 rounded-xl bg-[#0a0a1f]/80 overflow-hidden hover:-translate-y-2 hover:border-cyan-600/70 transition-all duration-400 hover:shadow-[0_0_30px_rgba(0,212,255,0.15)]">
+            <div class="h-1 bg-gradient-to-r from-cyan-500/40 to-blue-500/40"></div>
+            <div class="p-6">
+              <div class="flex items-center justify-between mb-4">
+                <span class={`text-[10px] font-mono px-2 py-1 rounded border ${a.levelColor}`}>{a.level}</span>
+                <span class="text-gray-600 text-[11px] font-mono">{a.time}</span>
+              </div>
+              <div class="font-mono text-[10px] text-gray-700 mb-2">BSW · #{a.no}</div>
+              <h3 class="text-white font-serif text-xl font-semibold mb-1 leading-snug group-hover:text-cyan-100 transition-colors">
+                {a.title}
+              </h3>
+              <div class="text-cyan-500 text-xs font-mono mb-3">{a.sub}</div>
+              <p class="text-gray-500 text-sm leading-relaxed line-clamp-3">{a.desc}</p>
+              <div class="mt-5 pt-4 border-t border-gray-800/50 flex items-center justify-between">
+                <span class="text-gray-600 text-xs font-mono">BSW.{a.no}</span>
+                <span class="text-cyan-500 text-xs font-mono group-hover:translate-x-1 transition-transform">読む →</span>
+              </div>
+            </div>
+          </a>
+        ))}
+      </div>
+    </section>
+
+    <!-- Next / footer nav -->
+    <section class="mb-20 border-t border-cyan-900/30 pt-10">
+      <div class="flex flex-col md:flex-row items-center justify-between gap-4 text-sm">
+        <a href="/" class="font-mono text-cyan-600 hover:text-cyan-400 transition-colors">
+          ← HOME
+        </a>
+        <div class="font-mono text-xs text-gray-700 tracking-widest">CHAPTER 03 / BASIC SOFTWARE</div>
+        <a href={`/topics/bsw/${articles[0].slug}`} class="font-mono text-cyan-600 hover:text-cyan-400 transition-colors">
+          最初の記事 →
+        </a>
+      </div>
+    </section>
+  </div>
+</Page>
