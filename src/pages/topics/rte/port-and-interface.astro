@@ -1,0 +1,291 @@
+---
+import Page from '../../../layouts/Page.astro';
+import Breadcrumb from '../../../components/Breadcrumb.astro';
+import PageHeader from '../../../components/PageHeader.astro';
+import Prose from '../../../components/Prose.astro';
+import Spell from '../../../components/Spell.astro';
+import CodeBlock from '../../../components/CodeBlock.astro';
+
+const toc = [
+  { id: 'port-types', label: 'Required / Provided Port' },
+  { id: 'sr', label: 'S/R Interface — データの流れ' },
+  { id: 'cs', label: 'C/S Interface — サービスの呼び出し' },
+  { id: 'connector', label: 'Connectorで接続する' },
+  { id: 'delegation', label: 'Delegation Connector' },
+  { id: 'arxml', label: 'ARXMLで書くと' },
+  { id: 'summary', label: 'まとめ' },
+];
+---
+
+<Page title="ポートとインターフェース | AUTOSAR.MAGIC" description="AUTOSARのRequired/Provided Port、S/R Interface、C/S Interfaceを解説。RTEの接続設計の核心を魔法の契約として読み解く。">
+  <div class="max-w-5xl mx-auto px-6">
+    <Breadcrumb items={[
+      { label: 'HOME', href: '/' },
+      { label: 'TOPICS', href: '/#topics' },
+      { label: 'RTE', href: '/topics/rte' },
+      { label: 'PORT & INTERFACE' },
+    ]} />
+
+    <PageHeader
+      chapter="RTE · #02 :: DESIGN"
+      title="ポートとインターフェース"
+      subtitle="契約の魔法陣 — 接続の設計。SWCが世界と繋がる唯一の窓口『ポート』と、その形式を定義する『インターフェース』の二層構造を解剖する。"
+      meta="読了時間: 約14分 · レベル: 中級 · 最終更新: 2025-05-20"
+      accent="purple"
+    />
+
+    <div class="grid lg:grid-cols-[1fr_220px] gap-12">
+      <article>
+        <Prose>
+          <p>
+            AUTOSARのSWCは、外の世界と<strong>ポート (Port)</strong> を通じてのみ通信する。ポートの形式は<strong>インターフェース (Interface)</strong> で定義される。この二層構造こそ、RTEが「何を生成すればいいか」を知るための設計言語だ。
+          </p>
+
+          <Spell type="spell" label="この記事のゴール">
+            Required/Provided Port の意味、S/R と C/S の違い、Connectorによる接続方法を理解し、<em>ARXMLでの記述と生成されるRTE APIの対応</em>を説明できるようになる。
+          </Spell>
+
+          <h2 id="port-types">Required / Provided Port — 入口と出口</h2>
+          <p>
+            すべてのポートは二種類のどちらかだ。
+          </p>
+
+          <table>
+            <thead>
+              <tr><th>種類</th><th>意味</th><th>SWCにとって</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong class="text-cyan-400">Provided Port (PPort)</strong></td>
+                <td>SWCが外に「提供する」インターフェース</td>
+                <td>送信 / サービスの提供側</td>
+              </tr>
+              <tr>
+                <td><strong class="text-purple-400">Required Port (RPort)</strong></td>
+                <td>SWCが外から「要求する」インターフェース</td>
+                <td>受信 / サービスの利用側</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <p>
+            ポート自体はただの「窓口」であり、その形式(何のデータが流れるか、どう呼ぶか)は<strong>インターフェース</strong>が決める。
+          </p>
+
+          <!-- Port diagram -->
+          <div class="not-prose my-8">
+            <div class="border border-purple-900/40 rounded-xl bg-[#06060f]/80 p-6">
+              <div class="font-mono text-[10px] text-purple-600 tracking-widest mb-6">// SWC PORT MODEL</div>
+              <div class="flex items-center justify-center gap-0 font-mono text-xs flex-wrap gap-y-4">
+                <!-- Engine SWC -->
+                <div class="border border-cyan-800/60 rounded-lg bg-cyan-950/20 p-4 text-center">
+                  <div class="text-cyan-300 font-bold mb-3">EngineSWC</div>
+                  <div class="space-y-2">
+                    <div class="border border-cyan-700/50 rounded px-3 py-1 text-cyan-400 text-[11px]">
+                      ▶ PPort: SpeedOut<br/><span class="text-gray-500 text-[9px]">(S/R, VehicleSpeed)</span>
+                    </div>
+                    <div class="border border-purple-700/50 rounded px-3 py-1 text-purple-400 text-[11px]">
+                      ◀ RPort: ThrottleIn<br/><span class="text-gray-500 text-[9px]">(S/R, ThrottlePosition)</span>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- RTE in the middle -->
+                <div class="mx-4 text-center">
+                  <div class="text-purple-500 text-xl">⟷</div>
+                  <div class="text-purple-700 text-[9px] mt-1">RTE<br/>Connector</div>
+                </div>
+
+                <!-- Meter SWC -->
+                <div class="border border-indigo-800/60 rounded-lg bg-indigo-950/20 p-4 text-center">
+                  <div class="text-indigo-300 font-bold mb-3">MeterSWC</div>
+                  <div class="space-y-2">
+                    <div class="border border-purple-700/50 rounded px-3 py-1 text-purple-400 text-[11px]">
+                      ◀ RPort: SpeedIn<br/><span class="text-gray-500 text-[9px]">(S/R, VehicleSpeed)</span>
+                    </div>
+                    <div class="border border-cyan-700/50 rounded px-3 py-1 text-cyan-400 text-[11px]">
+                      ▶ PPort: DisplayOut<br/><span class="text-gray-500 text-[9px]">(S/R, DisplayValue)</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="text-center font-mono text-[9px] text-gray-600 mt-4">EngineSWC.SpeedOut → [RTE] → MeterSWC.SpeedIn</div>
+            </div>
+          </div>
+
+          <h2 id="sr">S/R Interface — データの流れ</h2>
+          <p>
+            <strong>Sender/Receiver (S/R) Interface</strong> は、データを「送りっぱなし / 受けっぱなし」にするインターフェースだ。返答を期待しない一方向のデータフロー。
+          </p>
+          <ul>
+            <li><strong>Sender側</strong>(PPort): <code>Rte_Write_*</code> でバッファに書く</li>
+            <li><strong>Receiver側</strong>(RPort): <code>Rte_Read_*</code> でバッファから読む</li>
+          </ul>
+
+          <CodeBlock lang="c" title="S/R Interface の使用例">
+{`/* === Sender (EngineSWC) === */
+/* PPort "SpeedOut" に uint16 "VehicleSpeed" を定義したとする */
+Rte_Write_SpeedOut_VehicleSpeed(speedKmh);   /* 書く */
+
+/* === Receiver (MeterSWC) === */
+/* RPort "SpeedIn" に同じインターフェースを接続したとする */
+uint16 speed;
+Rte_Read_SpeedIn_VehicleSpeed(&speed);       /* 読む */`}
+          </CodeBlock>
+
+          <h3>Explicit vs Implicit</h3>
+          <p>
+            S/R通信には2つのタイミングモデルがある。
+          </p>
+          <table>
+            <thead>
+              <tr><th>モード</th><th>動作</th><th>API</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Explicit</strong></td>
+                <td>Runnable実行中に任意のタイミングで読み書き</td>
+                <td><code>Rte_Read / Rte_Write</code></td>
+              </tr>
+              <tr>
+                <td><strong>Implicit</strong></td>
+                <td>Runnable開始時にバッファをコピー、終了時に書き戻し。Runnable中はローカルコピーで動作</td>
+                <td><code>Rte_IRead / Rte_IWrite</code></td>
+              </tr>
+            </tbody>
+          </table>
+          <p>
+            ImplicitはRunnable実行中にデータが変化しない安全性を保証する。ExplicitはリアルタイムにBSWのバッファを参照する。用途に応じて選択する。
+          </p>
+
+          <h2 id="cs">C/S Interface — サービスの呼び出し</h2>
+          <p>
+            <strong>Client/Server (C/S) Interface</strong> は、関数呼び出しスタイルのインターフェースだ。Clientが呼び出し、Serverが処理して返答する。
+          </p>
+          <ul>
+            <li><strong>Server側</strong>(PPort): <code>Rte_Call_*</code> で呼ばれる関数を実装する</li>
+            <li><strong>Client側</strong>(RPort): <code>Rte_Call_*</code> で呼び出す</li>
+          </ul>
+
+          <CodeBlock lang="c" title="C/S Interface の使用例">
+{`/* === Server (NvMSWC / BSW Serviceなど) === */
+/* C/S Interface "NvMRead" に operation "ReadBlock" を定義 */
+Std_ReturnType NvM_ReadBlockServer(uint16 blockId, uint8 *data)
+{
+    return NvM_ReadBlock(blockId, data);   /* BSWを呼ぶ */
+}
+
+/* === Client (CalibrationSWC) === */
+uint8 calibData[16];
+Std_ReturnType ret;
+ret = Rte_Call_NvMPort_ReadBlock(CALIB_BLOCK_ID, calibData);
+if (ret == RTE_E_OK) {
+    /* キャリブレーション値を適用 */
+}`}
+          </CodeBlock>
+
+          <Spell type="rune" label="S/R vs C/S の選び方">
+            <strong>データを「公開する」→ S/R</strong>: 車速、エンジン回転数などのセンサ値。受信者が複数いてもOK。<br/>
+            <strong>「処理を依頼する」→ C/S</strong>: NvM読み書き、診断サービス、暗号化など。処理結果(戻り値)が必要なとき。
+          </Spell>
+
+          <h2 id="connector">Connectorで接続する</h2>
+          <p>
+            同じインターフェースを持つPPortとRPortは<strong>Connector</strong>で繋がれる。Connectorが存在して初めて、RTEはそのルートのAPIを生成する。
+          </p>
+          <p>
+            重要なのは「<strong>接続は設計ツール上の操作</strong>」であり、コードを書くのではない点だ。ARXMLに<code>SwConnector</code>要素を追加し、PPortとRPortのパスを指定するだけ。
+          </p>
+
+          <h2 id="delegation">Delegation Connector</h2>
+          <p>
+            Compositionという概念も重要だ。複数のSWCを<strong>Composition SWC</strong>という器にまとめ、外界とのポートを<strong>Delegation Connector</strong>で繋ぐ。
+          </p>
+          <p>
+            これにより、Composition SWCを一つのブラックボックスとして扱えるようになる。Tier1がCompositionを提供し、OEMがその内部を知らずに統合できる — これがAUTOSARの「部品化」設計だ。
+          </p>
+
+          <h2 id="arxml">ARXMLで書くと</h2>
+
+          <CodeBlock lang="xml" title="SenderReceiverInterface (ARXML抜粋)">
+{`<!-- インターフェース定義: VehicleSpeedInterface -->
+<SENDER-RECEIVER-INTERFACE>
+  <SHORT-NAME>VehicleSpeedInterface</SHORT-NAME>
+  <DATA-ELEMENTS>
+    <VARIABLE-DATA-PROTOTYPE>
+      <SHORT-NAME>VehicleSpeed</SHORT-NAME>
+      <TYPE-TREF>/DataTypes/uint16</TYPE-TREF>
+    </VARIABLE-DATA-PROTOTYPE>
+  </DATA-ELEMENTS>
+</SENDER-RECEIVER-INTERFACE>
+
+<!-- EngineSWCのPPort -->
+<P-PORT-PROTOTYPE>
+  <SHORT-NAME>SpeedOut</SHORT-NAME>
+  <PROVIDED-INTERFACE-TREF>/Interfaces/VehicleSpeedInterface</PROVIDED-INTERFACE-TREF>
+</P-PORT-PROTOTYPE>
+
+<!-- MeterSWCのRPort -->
+<R-PORT-PROTOTYPE>
+  <SHORT-NAME>SpeedIn</SHORT-NAME>
+  <REQUIRED-INTERFACE-TREF>/Interfaces/VehicleSpeedInterface</REQUIRED-INTERFACE-TREF>
+</R-PORT-PROTOTYPE>
+
+<!-- Connector -->
+<ASSEMBLY-SW-CONNECTOR>
+  <SHORT-NAME>SpeedConnector</SHORT-NAME>
+  <PROVIDER-IREF>
+    <CONTEXT-COMPONENT-REF>.../EngineSWC</CONTEXT-COMPONENT-REF>
+    <TARGET-P-PORT-REF>.../SpeedOut</TARGET-P-PORT-REF>
+  </PROVIDER-IREF>
+  <REQUESTER-IREF>
+    <CONTEXT-COMPONENT-REF>.../MeterSWC</CONTEXT-COMPONENT-REF>
+    <TARGET-R-PORT-REF>.../SpeedIn</TARGET-R-PORT-REF>
+  </REQUESTER-IREF>
+</ASSEMBLY-SW-CONNECTOR>`}
+          </CodeBlock>
+
+          <p>
+            このARXMLを読んだRTEジェネレータは、<code>Rte_Write_SpeedOut_VehicleSpeed</code> と <code>Rte_Read_SpeedIn_VehicleSpeed</code> を生成し、内部でバッファを繋ぐ。
+          </p>
+
+          <h2 id="summary">まとめ</h2>
+          <ul>
+            <li>ポートは<strong>Required (入力・利用)</strong> と <strong>Provided (出力・提供)</strong> の2種</li>
+            <li>インターフェースは<strong>S/R</strong>(データ送受信) と <strong>C/S</strong>(関数呼び出し) の2種</li>
+            <li>S/Rには<strong>Explicit</strong>(任意タイミング) と <strong>Implicit</strong>(Runnable前後コピー) がある</li>
+            <li>接続は<strong>Connector</strong> (Assembly: SWC間 / Delegation: Composition境界)</li>
+            <li>すべてARXMLで定義し、RTEジェネレータがAPIを生成する</li>
+          </ul>
+          <p>
+            次の記事では、RTEジェネレータが実際に吐き出す <code>Rte_SWC.h</code> を生のコードレベルで読み解く。どんな関数が生成され、バッファはどう管理され、スケジューリングはどう組まれるか — 現場目線で追いかけよう。
+          </p>
+        </Prose>
+
+        <nav class="mt-20 pt-10 border-t border-purple-900/30 flex flex-col sm:flex-row items-stretch gap-3">
+          <a href="/topics/rte/what-is-rte" class="flex-1 group border border-purple-900/40 hover:border-purple-700 rounded-lg p-4 transition-colors">
+            <div class="font-mono text-[10px] text-purple-700 tracking-widest mb-1">← PREV · RTE.01</div>
+            <div class="text-purple-300 group-hover:text-purple-100 transition-colors">RTEとは何か</div>
+          </a>
+          <a href="/topics/rte/generated-code" class="flex-1 group border border-purple-900/40 hover:border-purple-700 rounded-lg p-4 transition-colors text-right">
+            <div class="font-mono text-[10px] text-purple-700 tracking-widest mb-1">NEXT · RTE.03 →</div>
+            <div class="text-purple-300 group-hover:text-purple-100 transition-colors">生成コードを読む</div>
+          </a>
+        </nav>
+      </article>
+
+      <aside class="hidden lg:block">
+        <div class="sticky top-28 border-l border-purple-900/40 pl-5">
+          <div class="font-mono text-[10px] text-purple-700 tracking-widest mb-4">// TABLE OF CONTENTS</div>
+          <ul class="space-y-3 text-sm">
+            {toc.map(t => (
+              <li>
+                <a href={`#${t.id}`} class="text-gray-500 hover:text-purple-400 transition-colors block leading-snug">{t.label}</a>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </aside>
+    </div>
+  </div>
+</Page>

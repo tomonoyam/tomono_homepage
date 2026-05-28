@@ -1,0 +1,180 @@
+---
+import Page from '../../../layouts/Page.astro';
+import Breadcrumb from '../../../components/Breadcrumb.astro';
+import PageHeader from '../../../components/PageHeader.astro';
+
+const articles = [
+  {
+    slug: 'what-is-rte',
+    no: '01',
+    title: 'RTEとは何か',
+    sub: '召喚陣の正体 — なぜ存在するか',
+    desc: 'なぜAUTOSARはRTEという中間層を必要としたのか。SWCの独立性とBSWの抽象化を繋ぐ「生成コード」という発想の本質を解く。',
+    level: '入門',
+    levelColor: 'text-green-400 border-green-800/50',
+    time: '8分',
+  },
+  {
+    slug: 'port-and-interface',
+    no: '02',
+    title: 'ポートとインターフェース',
+    sub: '契約の魔法陣 — 接続の設計',
+    desc: 'Required/Provided Port、S/R Interface、C/S Interface。ARXMLで定義する「接続の契約」が、RTEとSWCのコードをどう決定するかを追う。',
+    level: '中級',
+    levelColor: 'text-blue-400 border-blue-800/50',
+    time: '14分',
+  },
+  {
+    slug: 'generated-code',
+    no: '03',
+    title: '生成コードを読む',
+    sub: '魔導書の解読 — Rte_*.h の世界',
+    desc: 'RTEジェネレータが吐き出す Rte_SWC.h を実際に読み解く。Rte_Write/Read/Call、バッファ、同期モデルの実装がどうなっているかを現場目線で解剖。',
+    level: '上級',
+    levelColor: 'text-amber-400 border-amber-800/50',
+    time: '18分',
+  },
+];
+
+const concepts = [
+  {
+    icon: '◈',
+    title: 'Software Component (SWC)',
+    desc: '術者。ビジネスロジックだけを書く。ハードウェアもBSWも「知らない」でよい。',
+    color: 'purple',
+  },
+  {
+    icon: '⟡',
+    title: 'Runtime Environment (RTE)',
+    desc: '召喚陣。SWCとBSW・他SWCを繋ぐ「生成コード」。ツールが自動生成する。',
+    color: 'cyan',
+  },
+  {
+    icon: '◉',
+    title: 'Basic Software (BSW)',
+    desc: '世界の基盤。通信・診断・OS。SWCからは直接呼ばれない。RTE経由のみ。',
+    color: 'blue',
+  },
+];
+
+const colorMap: Record<string, string> = {
+  purple: 'border-purple-700/50 bg-purple-950/30 text-purple-300',
+  cyan:   'border-cyan-700/50 bg-cyan-950/30 text-cyan-300',
+  blue:   'border-blue-700/50 bg-blue-950/30 text-blue-300',
+};
+---
+
+<Page title="RTE — 召喚陣 | AUTOSAR.MAGIC" description="AUTOSAR RTE (Runtime Environment) の全体像。SWCとBSWを繋ぐ生成コードの仕組みをまとめた章扉。">
+  <div class="max-w-6xl mx-auto px-6">
+    <Breadcrumb items={[
+      { label: 'HOME', href: '/' },
+      { label: 'TOPICS', href: '/#topics' },
+      { label: 'RTE' },
+    ]} />
+
+    <PageHeader
+      chapter="CHAPTER 04 :: RUNTIME ENVIRONMENT"
+      title="RTE — 召喚陣"
+      subtitle="SWCとBSWの間に立ち、すべての通信を仲介する魔法の中間層。コードを書くのではなく「ツールに生成させる」という発想の転換がここにある。"
+      meta="AUTOSAR CP · Runtime Environment · Generated Code · ARXML"
+      accent="purple"
+    />
+
+    <!-- Intro + concept -->
+    <section class="mb-20">
+      <div class="grid md:grid-cols-3 gap-6 mb-12">
+        <div class="md:col-span-2 space-y-5 text-gray-300 leading-relaxed">
+          <p>
+            AUTOSAR設計において、SWCとBSWは<span class="text-purple-400 font-semibold">直接話せない</span>。両者の間には必ず <span class="text-cyan-400 font-semibold">RTE (Runtime Environment)</span> という仲介者が立つ。
+          </p>
+          <p>
+            RTEは「手書きする」ものではない。ARXMLで定義したポート・インターフェース・接続情報をもとに、<em>設計ツールが自動生成する</em>。生成されたヘッダと実装ファイルが、SWCとBSW双方の「呼び口」になる。
+          </p>
+          <p>
+            この発想が革命的だったのは、<strong>SWCの開発者とBSWの開発者が一切依存せずに並行開発できる</strong>点だ。接続の仕様はARXMLに書く。ツールがRTEを生成する。両者はRTEのAPIだけを守ればいい。
+          </p>
+        </div>
+        <div class="border border-purple-900/50 rounded-lg bg-[#0a0a1f]/60 p-5">
+          <div class="font-mono text-[10px] text-purple-700 tracking-widest mb-4">RTE.ROLE</div>
+          <dl class="space-y-2 font-mono text-xs">
+            {[
+              { k: '種別', v: '生成コード' },
+              { k: 'ソース', v: 'ARXMLから自動生成' },
+              { k: '接続形式', v: 'S/R / C/S Port' },
+              { k: '通信モード', v: 'Explicit / Implicit' },
+              { k: 'スケジューリング', v: 'BSW Scheduler経由' },
+              { k: '再利用性', v: 'SWCは移植可能' },
+            ].map(s => (
+              <div class="flex justify-between gap-2 border-b border-purple-900/20 pb-1.5 last:border-none">
+                <dt class="text-gray-500 shrink-0">{s.k}</dt>
+                <dd class="text-purple-300 text-right">{s.v}</dd>
+              </div>
+            ))}
+          </dl>
+        </div>
+      </div>
+
+      <!-- Layer diagram -->
+      <div class="space-y-2">
+        {concepts.map(c => (
+          <div class={`border rounded-lg p-5 flex items-center gap-6 ${colorMap[c.color]}`}>
+            <span class="text-3xl opacity-70">{c.icon}</span>
+            <div>
+              <div class="font-mono text-sm font-bold">{c.title}</div>
+              <div class="text-gray-400 text-sm mt-1">{c.desc}</div>
+            </div>
+          </div>
+        ))}
+        <div class="flex justify-center gap-4 pt-2 font-mono text-[10px] text-gray-700">
+          <span>↑ SWCはRTE APIだけを呼ぶ</span>
+          <span>·</span>
+          <span>RTEはBSWのAPIだけを呼ぶ</span>
+          <span>·</span>
+          <span>両者は互いを知らない</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Articles -->
+    <section class="mb-24">
+      <div class="flex items-center gap-4 mb-12">
+        <div class="h-px flex-1 bg-gradient-to-r from-transparent to-purple-800/50"></div>
+        <span class="font-mono text-xs text-purple-600 tracking-widest px-4">// CHAPTER ARTICLES</span>
+        <div class="h-px flex-1 bg-gradient-to-l from-transparent to-purple-800/50"></div>
+      </div>
+
+      <h2 class="text-2xl md:text-3xl font-serif font-semibold text-white text-center mb-3">この章の記事</h2>
+      <p class="text-gray-500 text-sm text-center mb-12 font-mono">Entries in this chapter</p>
+
+      <div class="grid md:grid-cols-3 gap-6">
+        {articles.map(a => (
+          <a href={`/topics/rte/${a.slug}`} class="group relative border border-purple-900/50 rounded-xl bg-[#0a0a1f]/80 overflow-hidden hover:-translate-y-2 hover:border-purple-600/70 transition-all duration-300 hover:shadow-[0_0_30px_rgba(168,85,247,0.15)]">
+            <div class="h-1 bg-gradient-to-r from-purple-500/40 to-violet-500/40"></div>
+            <div class="p-6">
+              <div class="flex items-center justify-between mb-4">
+                <span class={`text-[10px] font-mono px-2 py-1 rounded border ${a.levelColor}`}>{a.level}</span>
+                <span class="text-gray-600 text-[11px] font-mono">{a.time}</span>
+              </div>
+              <div class="font-mono text-[10px] text-gray-700 mb-2">RTE · #{a.no}</div>
+              <h3 class="text-white font-serif text-xl font-semibold mb-1 leading-snug group-hover:text-purple-100 transition-colors">{a.title}</h3>
+              <div class="text-purple-400 text-xs font-mono mb-3">{a.sub}</div>
+              <p class="text-gray-500 text-sm leading-relaxed line-clamp-3">{a.desc}</p>
+              <div class="mt-5 pt-4 border-t border-gray-800/50 flex items-center justify-between">
+                <span class="text-gray-600 text-xs font-mono">RTE.{a.no}</span>
+                <span class="text-purple-400 text-xs font-mono group-hover:translate-x-1 transition-transform">読む →</span>
+              </div>
+            </div>
+          </a>
+        ))}
+      </div>
+    </section>
+
+    <section class="mb-20 border-t border-purple-900/30 pt-10">
+      <div class="flex flex-col md:flex-row items-center justify-between gap-4 text-sm">
+        <a href="/" class="font-mono text-purple-600 hover:text-purple-400 transition-colors">← HOME</a>
+        <div class="font-mono text-xs text-gray-700 tracking-widest">CHAPTER 04 / RUNTIME ENVIRONMENT</div>
+        <a href={`/topics/rte/${articles[0].slug}`} class="font-mono text-purple-600 hover:text-purple-400 transition-colors">最初の記事 →</a>
+      </div>
+    </section>
+  </div>
+</Page>

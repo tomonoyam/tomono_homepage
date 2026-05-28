@@ -1,0 +1,306 @@
+---
+import Page from '../../../layouts/Page.astro';
+import Breadcrumb from '../../../components/Breadcrumb.astro';
+import PageHeader from '../../../components/PageHeader.astro';
+import Prose from '../../../components/Prose.astro';
+import Spell from '../../../components/Spell.astro';
+import CodeBlock from '../../../components/CodeBlock.astro';
+
+const toc = [
+  { id: 'header-layout', label: 'Rte_*.h の構造' },
+  { id: 'write-read', label: 'Write / Read API の中身' },
+  { id: 'call', label: 'Rte_Call の実装' },
+  { id: 'runnable', label: 'Runnableのスケジューリング' },
+  { id: 'init', label: '初期値とInit Runnable' },
+  { id: 'debug', label: 'デバッグのコツ' },
+  { id: 'summary', label: 'まとめ' },
+];
+---
+
+<Page title="生成コードを読む — Rte_*.h の世界 | AUTOSAR.MAGIC" description="RTEジェネレータが出力するRte_SWC.hとRte.cを実際に読む。Write/Read/Call APIの実装・Runnableスケジューリング・デバッグのコツ。">
+  <div class="max-w-5xl mx-auto px-6">
+    <Breadcrumb items={[
+      { label: 'HOME', href: '/' },
+      { label: 'TOPICS', href: '/#topics' },
+      { label: 'RTE', href: '/topics/rte' },
+      { label: 'GENERATED CODE' },
+    ]} />
+
+    <PageHeader
+      chapter="RTE · #03 :: DEEP DIVE"
+      title="生成コードを読む"
+      subtitle="魔導書の解読 — Rte_*.h の世界。ツールが吐き出すコードを読めることは、バグの根因を掴む力だ。恐れずに開いてみよう。"
+      meta="読了時間: 約18分 · レベル: 上級 · 最終更新: 2025-05-25"
+      accent="purple"
+    />
+
+    <div class="grid lg:grid-cols-[1fr_220px] gap-12">
+      <article>
+        <Prose>
+          <p>
+            「生成コードは触るな」と言われる。それは正しい。だが「読むな」ではない。RTEが何を生成しているかを理解することは、<strong>デバッグ力を劇的に向上させる</strong>。
+          </p>
+          <p>
+            この記事では、実際のRTE生成ファイルに近い擬似コードを使いながら、「生成コードがどんな仕組みで動いているか」を解読していく。
+          </p>
+
+          <Spell type="contract" label="前提知識">
+            この記事を読む前に、RTEとは何か (RTE.01) とポートとインターフェース (RTE.02) を読んでおくことを推奨する。ARXMLの Port / Interface / Connector の概念を把握していることが前提だ。
+          </Spell>
+
+          <h2 id="header-layout">Rte_*.h の構造</h2>
+          <p>
+            各SWCに対して、RTE ジェネレータは <code>Rte_&#123;SWC名&#125;.h</code> を生成する。このファイルがSWCの「魔法陣」の全貌だ。
+          </p>
+
+          <CodeBlock lang="c" title="Rte_VehicleSpeedSWC.h (生成 — 概略)">
+{`#ifndef RTE_VEHICLESPEEDSWC_H
+#define RTE_VEHICLESPEEDSWC_H
+
+#include "Rte_Type.h"        /* 型定義 */
+#include "Rte_DataHandleType.h"
+
+/*==============================================================*
+ * Runnable プロトタイプ
+ * (SWCがこの通りに実装する義務がある)
+ *==============================================================*/
+extern void VehicleSpeed_Init(void);
+extern void VehicleSpeed_10ms(void);
+
+/*==============================================================*
+ * S/R Write API  (PPort → Sender 側)
+ *==============================================================*/
+/* Port: SpeedOut, Element: VehicleSpeed (uint16) */
+FUNC(Std_ReturnType, RTE_CODE)
+    Rte_Write_SpeedOut_VehicleSpeed(uint16 value);
+
+/*==============================================================*
+ * S/R Read API  (RPort → Receiver 側)
+ *==============================================================*/
+/* Port: ThrottleIn, Element: ThrottlePosition (uint8) */
+FUNC(Std_ReturnType, RTE_CODE)
+    Rte_Read_ThrottleIn_ThrottlePosition(P2VAR(uint8, ...) value);
+
+/*==============================================================*
+ * C/S Call API  (RPort → Client 側)
+ *==============================================================*/
+/* Port: NvMPort, Operation: ReadBlock */
+FUNC(Std_ReturnType, RTE_CODE)
+    Rte_Call_NvMPort_ReadBlock(uint16 blockId, P2VAR(uint8, ...) buf);
+
+/*==============================================================*
+ * マクロによる短縮形 (SWCコードで使う)
+ *==============================================================*/
+#define Rte_Write_VehicleSpeed(v)     Rte_Write_SpeedOut_VehicleSpeed(v)
+#define Rte_Read_ThrottlePos(p)       Rte_Read_ThrottleIn_ThrottlePosition(p)
+
+#endif /* RTE_VEHICLESPEEDSWC_H */`}
+          </CodeBlock>
+
+          <p>
+            気づくことがある。SWCのコードに出てくる全ての <code>Rte_*</code> 関数は、このヘッダで宣言されている。<strong>ARXMLのPort/Interface/Connector定義が、そのままAPIの名前になっている</strong>。
+          </p>
+
+          <h2 id="write-read">Write / Read API の中身</h2>
+          <p>
+            実装側 (Rte.c または Rte_&#123;SWC名&#125;.c) を見ると、Write/Readの実態がわかる。Explicit S/Rの場合は次のようになる。
+          </p>
+
+          <CodeBlock lang="c" title="Rte.c — Write/Read の実装 (Explicit S/R)">
+{`/*-----------------------------------------------------------
+ * グローバルバッファ (RTEが管理する共有メモリ)
+ * - SWCは直接触れない。必ずRTE API経由でアクセスする。
+ *-----------------------------------------------------------*/
+static VAR(uint16, RTE_VAR_INIT) Rte_Buffer_SpeedOut_VehicleSpeed = 0u;
+
+/*-----------------------------------------------------------
+ * Write: Sender(EngineSWC) → バッファ → Com_SendSignal
+ *-----------------------------------------------------------*/
+FUNC(Std_ReturnType, RTE_CODE)
+Rte_Write_SpeedOut_VehicleSpeed(uint16 value)
+{
+    Std_ReturnType ret = RTE_E_OK;
+
+    /* (1) 内部バッファを更新 */
+    Rte_Buffer_SpeedOut_VehicleSpeed = value;
+
+    /* (2) COM に転送 (CAN送信が設定されている場合) */
+    ret = Com_SendSignal(ComConf_ComSignal_VehicleSpeed, &value);
+    if (ret != E_OK) {
+        ret = RTE_E_COM_STOPPED;
+    }
+
+    return ret;
+}
+
+/*-----------------------------------------------------------
+ * Read: バッファ → Receiver(MeterSWC)
+ * (同一ECU内接続の場合。CAN受信の場合は Com_ReceiveSignal 経由)
+ *-----------------------------------------------------------*/
+FUNC(Std_ReturnType, RTE_CODE)
+Rte_Read_SpeedIn_VehicleSpeed(P2VAR(uint16, ...) value)
+{
+    *value = Rte_Buffer_SpeedOut_VehicleSpeed;
+    return RTE_E_OK;
+}`}
+          </CodeBlock>
+
+          <Spell type="warning" label="同一ECU内 vs CAN経由">
+            <strong>同一ECU内接続</strong>: Write → バッファ直書き → Read でバッファ読み出し。CAN通信は発生しない。<br/>
+            <strong>別ECU間接続</strong>: Write → Com_SendSignal → CANフレーム送出。受信側ECUでは Com_ReceiveSignal → バッファ → Read。<br/>
+            <em>SWCのコードは変わらない。RTEの生成内容が変わるだけ。</em>これがポータビリティの本質。
+          </Spell>
+
+          <h2 id="call">Rte_Call の実装</h2>
+          <p>
+            C/S Interfaceの <code>Rte_Call_*</code> は、同期呼び出しの場合は単なる関数ポインタ呼び出しになる。
+          </p>
+
+          <CodeBlock lang="c" title="Rte.c — C/S Call の実装 (同期)">
+{`/*-----------------------------------------------------------
+ * C/S Interface: NvMPort / ReadBlock
+ * Server: NvMServiceSWC  (BSWラッパー)
+ * Client: CalibrationSWC
+ *-----------------------------------------------------------*/
+FUNC(Std_ReturnType, RTE_CODE)
+Rte_Call_NvMPort_ReadBlock(
+    uint16                            blockId,
+    P2VAR(uint8, AUTOMATIC, RTE_APPL) buf
+)
+{
+    /* ServerのRunnable(提供関数)を直接呼ぶ */
+    return NvMServiceSWC_ReadBlock(blockId, buf);
+    /* NvMServiceSWC_ReadBlock の中で NvM_ReadBlock を呼ぶ */
+}
+
+/* --- 非同期C/S の場合は Queued Buffer を経由する --- */
+/* (ここでは省略。非同期はより複雑なキューイング実装になる) */`}
+          </CodeBlock>
+
+          <h2 id="runnable">Runnableのスケジューリング</h2>
+          <p>
+            SWCの処理単位を<strong>Runnable Entity</strong> (単にRunnableとも) と呼ぶ。Runnableは「いつ呼ばれるか」をARXMLで宣言する。そしてRTEはその宣言に基づき、<strong>OSタスクの中にRunnableを組み込む</strong>コードを生成する。
+          </p>
+
+          <CodeBlock lang="c" title="OsTask_10ms.c (BSW Schedulerから呼ばれるタスク — 生成)">
+{`/* このファイルもRTEジェネレータ (またはOS設定ツール) が生成する */
+
+TASK(OsTask_10ms)
+{
+    /* --- 10msタスクで呼ばれるRunnable一覧 --- */
+
+    /* RTE Init (初回のみ) */
+    /* → Rte_Start() で管理。ここでは省略 */
+
+    /* Runnable呼び出し順はARXMLのInitial Order Offset等で決まる */
+    Rte_Task_10ms_EngineSWC();      /* EngineSWCの10ms Runnable */
+    Rte_Task_10ms_VehicleSpeedSWC();
+    Rte_Task_10ms_MeterSWC();
+
+    TerminateTask();
+}
+
+/* 各Rte_Task_*関数の実装 (Rte.cに生成) */
+void Rte_Task_10ms_VehicleSpeedSWC(void)
+{
+    /* Implicit読み込み: タスク開始時にバッファをコピー */
+    Rte_Ioc_CopyIn_VehicleSpeedSWC();
+
+    /* Runnableを呼ぶ */
+    VehicleSpeed_10ms();   /* SWCのエントリポイント */
+
+    /* Implicit書き戻し: タスク終了時にバッファへコピー */
+    Rte_Ioc_CopyOut_VehicleSpeedSWC();
+}`}
+          </CodeBlock>
+
+          <h2 id="init">初期値とInit Runnable</h2>
+          <p>
+            AUTOSARでは、ECU起動時に <strong>Init Runnable</strong> が呼ばれる。バッファの初期化や、NvMからのデータ復元などを行う。
+          </p>
+
+          <CodeBlock lang="c" title="VehicleSpeedSWC.c — Init Runnable">
+{`void VehicleSpeed_Init(void)
+{
+    uint8  calibBuf[8];
+    Std_ReturnType ret;
+
+    /* NvMからキャリブレーション値を読む (C/S Call) */
+    ret = Rte_Call_NvMPort_ReadBlock(CALIB_BLOCK_ID, calibBuf);
+    if (ret == RTE_E_OK) {
+        ApplyCalibration(calibBuf);
+    }
+
+    /* 初期速度を送信 */
+    Rte_Write_SpeedOut_VehicleSpeed(0u);
+}`}
+          </CodeBlock>
+
+          <h2 id="debug">デバッグのコツ</h2>
+          <p>
+            生成コードを読めるようになると、次のデバッグが格段に早くなる。
+          </p>
+
+          <h3>📍 「データが届かない」を追う</h3>
+          <ol>
+            <li><code>Rte_Write_*</code> の戻り値を確認 → <code>RTE_E_COM_STOPPED</code> ならComが止まっている</li>
+            <li><code>Rte_Buffer_*</code> グローバル変数をデバッガで直接確認 → Writeは届いているかチェック</li>
+            <li>Readが<code>RTE_E_NEVER_RECEIVED</code>を返す → 一度も受信していない(送信側タスクが動いていないなど)</li>
+          </ol>
+
+          <h3>📍 「Runnableが呼ばれない」を追う</h3>
+          <ol>
+            <li>OSタスクが動いているかをブレークポイントで確認</li>
+            <li><code>Rte_Task_*</code> 関数内のRunnable呼び出し順を生成コードで確認</li>
+            <li>ARXMLのRunnableの <code>MinimumStartInterval</code> が短すぎないか確認</li>
+          </ol>
+
+          <h3>📍 型の不一致</h3>
+          <p>
+            <code>Rte_Write_*</code> の引数型とSWCが渡す型が違うと、コンパイル警告が出る。<strong>Cのキャストで黙らせずに、ARXMLの型定義を直す</strong>のが正しい手順だ。
+          </p>
+
+          <Spell type="rune" label="現場の知恵">
+            生成コードのバッファ変数名は規則的だ。多くのツールは <code>Rte_Buf_&#123;PortName&#125;_&#123;ElementName&#125;</code> のような命名規則を使う。デバッガのウォッチに放り込んでおくと、RTEレベルの通信をリアルタイムで監視できる。
+          </Spell>
+
+          <h2 id="summary">まとめ</h2>
+          <ul>
+            <li><code>Rte_&#123;SWC名&#125;.h</code> にSWCが使う全APIが宣言される。<strong>ARXMLのPort名・Interface名・Element名がそのまま反映</strong>される</li>
+            <li>Explicit S/R WriteはBSWのCom_SendSignalまで繋がる。Readはバッファから取得</li>
+            <li>C/S CallはServerのRunnable関数への直接呼び出し(同期)またはキュー経由(非同期)</li>
+            <li>RunnableはOSタスクに組み込まれる。実行順はARXMLで制御</li>
+            <li>デバッグはバッファ変数を直接観察することが近道</li>
+          </ul>
+          <p>
+            RTE章はここまで。次は<strong>SWC章</strong>か<strong>診断通信章</strong>へ。どちらもRTEで学んだポートとインターフェースの設計が活きる世界だ。
+          </p>
+        </Prose>
+
+        <nav class="mt-20 pt-10 border-t border-purple-900/30 flex flex-col sm:flex-row items-stretch gap-3">
+          <a href="/topics/rte/port-and-interface" class="flex-1 group border border-purple-900/40 hover:border-purple-700 rounded-lg p-4 transition-colors">
+            <div class="font-mono text-[10px] text-purple-700 tracking-widest mb-1">← PREV · RTE.02</div>
+            <div class="text-purple-300 group-hover:text-purple-100 transition-colors">ポートとインターフェース</div>
+          </a>
+          <a href="/topics/rte" class="flex-1 group border border-purple-900/40 hover:border-purple-700 rounded-lg p-4 transition-colors text-right">
+            <div class="font-mono text-[10px] text-purple-700 tracking-widest mb-1">章扉 →</div>
+            <div class="text-purple-300 group-hover:text-purple-100 transition-colors">RTE章へ戻る</div>
+          </a>
+        </nav>
+      </article>
+
+      <aside class="hidden lg:block">
+        <div class="sticky top-28 border-l border-purple-900/40 pl-5">
+          <div class="font-mono text-[10px] text-purple-700 tracking-widest mb-4">// TABLE OF CONTENTS</div>
+          <ul class="space-y-3 text-sm">
+            {toc.map(t => (
+              <li>
+                <a href={`#${t.id}`} class="text-gray-500 hover:text-purple-400 transition-colors block leading-snug">{t.label}</a>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </aside>
+    </div>
+  </div>
+</Page>

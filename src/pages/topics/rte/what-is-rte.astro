@@ -1,0 +1,222 @@
+---
+import Page from '../../../layouts/Page.astro';
+import Breadcrumb from '../../../components/Breadcrumb.astro';
+import PageHeader from '../../../components/PageHeader.astro';
+import Prose from '../../../components/Prose.astro';
+import Spell from '../../../components/Spell.astro';
+import CodeBlock from '../../../components/CodeBlock.astro';
+
+const toc = [
+  { id: 'problem', label: 'なぜRTEが必要か' },
+  { id: 'what', label: 'RTEは何者か' },
+  { id: 'generated', label: '生成コードという発想' },
+  { id: 'swc-view', label: 'SWC側から見たRTE' },
+  { id: 'bsw-view', label: 'BSW側から見たRTE' },
+  { id: 'summary', label: 'まとめ' },
+];
+---
+
+<Page title="RTEとは何か | AUTOSAR.MAGIC" description="AUTOSAR RTEの存在理由。SWC独立性とBSW抽象化を両立する『生成コード』という発想を入門者向けに解説。">
+  <div class="max-w-5xl mx-auto px-6">
+    <Breadcrumb items={[
+      { label: 'HOME', href: '/' },
+      { label: 'TOPICS', href: '/#topics' },
+      { label: 'RTE', href: '/topics/rte' },
+      { label: 'WHAT IS RTE' },
+    ]} />
+
+    <PageHeader
+      chapter="RTE · #01 :: FOUNDATION"
+      title="RTEとは何か"
+      subtitle="召喚陣の正体 — なぜ存在するか。AUTOSARが「間に一層挟む」という選択をした理由と、それがもたらす設計上の恩恵を解き明かす。"
+      meta="読了時間: 約8分 · レベル: 入門 · 最終更新: 2025-05-15"
+      accent="purple"
+    />
+
+    <div class="grid lg:grid-cols-[1fr_220px] gap-12">
+      <article>
+        <Prose>
+          <p>
+            BSWを学んだとき、こんな疑問が浮かんだかもしれない。「SWCが <code>Com_SendSignal</code> を直接呼べばいいのでは？」。正しい疑問だ。だが、それをやると<strong>AUTOSARの最大の価値が消える</strong>。
+          </p>
+          <p>
+            RTE (Runtime Environment) は、その問いへの答えとして生まれた。
+          </p>
+
+          <Spell type="spell" label="この記事のゴール">
+            「なぜSWCはRTE経由でしか通信できないのか」を<em>設計の論理</em>として説明できるようになる。RTEの存在意義を掴めば、AUTOSARアーキテクチャ全体が一気に腑に落ちる。
+          </Spell>
+
+          <h2 id="problem">なぜRTEが必要か — AUTOSARが解いた問題</h2>
+          <p>
+            AUTOSAR以前の車載ソフトウェア開発では、次のような問題が常態化していた。
+          </p>
+          <ul>
+            <li><strong>ECUが変わるたびにアプリを書き直す</strong> — 通信ライブラリの関数名も引数もベンダごとに違う</li>
+            <li><strong>サプライヤ間でコードが共有できない</strong> — Tier1がTier2に渡したSWCが、別のBSWスタックでは動かない</li>
+            <li><strong>テストが難しい</strong> — SWCがBSWに直結していると、実機なしでは単体テストができない</li>
+          </ul>
+          <p>
+            解決策は一つ。<strong>SWCとBSWを完全に分離する</strong>。SWCはBSWを呼んではならない。BSWはSWCが誰かを知ってはならない。両者の間に<em>標準APIの壁</em>を立てる — それがRTEだ。
+          </p>
+
+          <h2 id="what">RTEは何者か</h2>
+          <p>
+            RTEは「ミドルウェア」や「OS」ではない。その正体は<strong>「プロジェクト固有の接続コード」</strong>だ。
+          </p>
+          <p>
+            あなたが <code>VehicleSpeedSWC</code> と <code>MeterSWC</code> を繋ぎたいとARXMLで宣言すると、設計ツール(Vector DaVinci、EB tresos、ETAS ORTEGAなど)がその定義を読み込み、<strong>自動的にRTEのCコードを生成する</strong>。
+          </p>
+
+          <!-- RTE generation flow visual -->
+          <div class="not-prose my-8 border border-purple-900/40 rounded-xl bg-[#06060f]/80 p-6">
+            <div class="font-mono text-[10px] text-purple-600 tracking-widest mb-6">// RTE GENERATION FLOW</div>
+            <div class="flex flex-col md:flex-row items-center justify-center gap-3 text-sm font-mono">
+              {[
+                { label: 'System Design\n(ARXML)', sub: 'SWC定義\nPort/Interface\n接続(Connector)', color: 'border-gray-700/50 text-gray-400' },
+                { arrow: '→\nRTE Generator\n(ツール)' },
+                { label: 'Rte_SWC.h\nRte.c / Rte.h', sub: '生成されたAPI\nバッファ定義\nRunnable Mapping', color: 'border-purple-700/50 text-purple-300' },
+                { arrow: '→\nコンパイル' },
+                { label: 'ECU Flash\n(.hex / .bin)', sub: 'SWC + RTE + BSW\nが一体として動く', color: 'border-cyan-700/50 text-cyan-300' },
+              ].map((item: any) => (
+                item.arrow
+                  ? <div class="text-gray-600 text-center text-xs whitespace-pre-line">{item.arrow}</div>
+                  : <div class={`border rounded-lg px-4 py-3 text-center ${item.color}`}>
+                      <div class="font-bold whitespace-pre-line">{item.label}</div>
+                      <div class="text-gray-500 text-[10px] mt-1 whitespace-pre-line">{item.sub}</div>
+                    </div>
+              ))}
+            </div>
+          </div>
+
+          <h2 id="generated">生成コードという発想</h2>
+          <p>
+            「コードを手書きしない」という発想は、最初は違和感がある。だが、このアプローチには強力な利点がある。
+          </p>
+          <ul>
+            <li><strong>接続ミスがコンパイルエラーになる</strong> — ARXMLの接続が間違っていれば、生成されたAPIの型が合わず、SWCがビルドできない。実機ではなくPCで検出できる。</li>
+            <li><strong>SWCのポータビリティが保証される</strong> — SWCはRTE APIだけを呼ぶ。RTEを再生成すれば、別ECU・別BSW上でも同じSWCが動く。</li>
+            <li><strong>テストが容易</strong> — RTE APIのモックを作れば、SWCをPCのx86環境で単体テストできる(SIL: Software-in-the-Loop)。</li>
+          </ul>
+
+          <Spell type="rune" label="パラダイムシフト">
+            AUTOSAR以前: SWCがBSWのAPIを<em>知っていなければならない</em><br/>
+            AUTOSAR以後: SWCはRTE APIを<em>呼ぶだけ。その先は知らなくていい</em><br/>
+            → 知識の境界が「接続の仕様 (ARXML)」に集約された
+          </Spell>
+
+          <h2 id="swc-view">SWC側から見たRTE</h2>
+          <p>
+            SWCの開発者から見ると、RTEは「インクルードするヘッダ」として現れる。
+          </p>
+
+          <CodeBlock lang="c" title="VehicleSpeedSWC.c (術者側)">
+{`/* RTEが生成したヘッダをインクルードするだけ */
+#include "Rte_VehicleSpeedSWC.h"
+
+/* Runnableエントリポイント (OSタスクから定期的に呼ばれる) */
+void VehicleSpeed_10ms(void)
+{
+    uint16 rawAdcValue;
+    uint16 speedKmh;
+
+    /* センサ値を読む — ADCが裏にいるが、SWCはRTE APIのみ */
+    Rte_Read_SpeedSensor_RawValue(&rawAdcValue);
+
+    /* 計算 */
+    speedKmh = (uint16)(rawAdcValue * 0.05f);
+
+    /* 結果を書く — Comが裏にいるが、SWCはRTE APIのみ */
+    Rte_Write_SpeedOut_VehicleSpeed(speedKmh);
+}
+
+/* SWCはCANもComもAdcも一切知らない。それがAUTOSARの約束。 */`}
+          </CodeBlock>
+
+          <p>
+            <code>Rte_Read_SpeedSensor_RawValue</code> の裏では、ADCドライバが走っている。<code>Rte_Write_SpeedOut_VehicleSpeed</code> の裏では、Com_SendSignalが呼ばれ、最終的にCANフレームとして送出される。だがSWCはそれを一切知らない。
+          </p>
+
+          <h2 id="bsw-view">BSW側から見たRTE</h2>
+          <p>
+            BSW側から見たとき、RTEは「コールバックを登録して呼んでもらう仕組み」として現れる。たとえばComは信号受信時に <code>RteComCallback</code> を呼ぶよう設定され、RTEはそこからSWCのRunnableへ繋ぐ。
+          </p>
+
+          <CodeBlock lang="c" title="Rte.c (生成コード — 概念)">
+{`/* これはRTEジェネレータが自動生成するコード。手書きしない。 */
+
+/* === Sender/Receiver バッファ === */
+static uint16 Rte_Buffer_SpeedOut_VehicleSpeed = 0u;
+
+/* === Write API === */
+Std_ReturnType Rte_Write_SpeedOut_VehicleSpeed(uint16 value)
+{
+    /* バッファに書く (Explicit S/R の場合) */
+    Rte_Buffer_SpeedOut_VehicleSpeed = value;
+
+    /* Com に転送 */
+    Com_SendSignal(ComSignalId_VehicleSpeed, &value);
+    return RTE_E_OK;
+}
+
+/* === Read API === */
+Std_ReturnType Rte_Read_SpeedSensor_RawValue(uint16 *value)
+{
+    /* Adc 経由で読む */
+    Adc_ValueGroupType adcBuf;
+    Adc_ReadGroup(AdcGroup_SpeedSensor, &adcBuf);
+    *value = (uint16)adcBuf[0];
+    return RTE_E_OK;
+}
+
+/* === Runnable スケジューリング (OSタスクから呼ばれる) === */
+void Rte_Task_10ms(void)
+{
+    VehicleSpeed_10ms();   /* SWCのRunnable呼び出し */
+}`}
+          </CodeBlock>
+
+          <Spell type="contract" label="生成コードの掟">
+            <strong>Rte_*.c / Rte_*.h は直接編集してはならない。</strong> ARXMLを変更し、ジェネレータを再実行する。手修正したコードは次回生成で消える — それはAUTOSARの仕様であり、設計の意図だ。
+          </Spell>
+
+          <h2 id="summary">まとめ</h2>
+          <ul>
+            <li>RTEはSWCとBSWを<strong>完全に分離する中間層</strong>。直接呼び合いを禁止する</li>
+            <li>その正体は<strong>ARXMLから自動生成されるCコード</strong>。手書きしない</li>
+            <li>SWCの開発者は <code>Rte_Write/Read/Call_*</code> APIだけを使う</li>
+            <li>生成コードを直接編集するのは禁忌。必ずARXML → 再生成の流れを守る</li>
+            <li>SWCは<strong>ポータブル</strong>になり、PCでの単体テスト(SIL)が可能になる</li>
+          </ul>
+          <p>
+            次の記事では、RTEの設計の核となる<strong>ポートとインターフェース</strong>を解剖する。S/R Interface と C/S Interface の違い、Required/Provided Portの設計哲学を掘り下げよう。
+          </p>
+        </Prose>
+
+        <nav class="mt-20 pt-10 border-t border-purple-900/30 flex flex-col sm:flex-row items-stretch gap-3">
+          <a href="/topics/rte" class="flex-1 group border border-purple-900/40 hover:border-purple-700 rounded-lg p-4 transition-colors">
+            <div class="font-mono text-[10px] text-purple-700 tracking-widest mb-1">← 章扉</div>
+            <div class="text-purple-300 group-hover:text-purple-100 transition-colors">RTE章へ戻る</div>
+          </a>
+          <a href="/topics/rte/port-and-interface" class="flex-1 group border border-purple-900/40 hover:border-purple-700 rounded-lg p-4 transition-colors text-right">
+            <div class="font-mono text-[10px] text-purple-700 tracking-widest mb-1">NEXT · RTE.02 →</div>
+            <div class="text-purple-300 group-hover:text-purple-100 transition-colors">ポートとインターフェース</div>
+          </a>
+        </nav>
+      </article>
+
+      <aside class="hidden lg:block">
+        <div class="sticky top-28 border-l border-purple-900/40 pl-5">
+          <div class="font-mono text-[10px] text-purple-700 tracking-widest mb-4">// TABLE OF CONTENTS</div>
+          <ul class="space-y-3 text-sm">
+            {toc.map(t => (
+              <li>
+                <a href={`#${t.id}`} class="text-gray-500 hover:text-purple-400 transition-colors block leading-snug">{t.label}</a>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </aside>
+    </div>
+  </div>
+</Page>
