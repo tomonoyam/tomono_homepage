@@ -1,0 +1,196 @@
+---
+import Page from '../../../layouts/Page.astro';
+import Breadcrumb from '../../../components/Breadcrumb.astro';
+import PageHeader from '../../../components/PageHeader.astro';
+import Prose from '../../../components/Prose.astro';
+import Spell from '../../../components/Spell.astro';
+import CodeBlock from '../../../components/CodeBlock.astro';
+
+const toc = [
+  { id: 'origin', label: '誕生の背景' },
+  { id: 'topology', label: 'バス型トポロジ' },
+  { id: 'differential', label: '差動信号とドミナント/レセシブ' },
+  { id: 'message-based', label: 'メッセージベースの革命' },
+  { id: 'canfd', label: 'CAN FDへの進化' },
+  { id: 'summary', label: 'まとめ' },
+];
+---
+
+<Page title="CANとは何か | AUTOSAR.MAGIC" description="CAN通信の入門。バス型トポロジ・差動信号・メッセージベース設計の本質を魔法体系として読み解く。">
+  <div class="max-w-5xl mx-auto px-6">
+    <Breadcrumb items={[
+      { label: 'HOME', href: '/' },
+      { label: 'TOPICS', href: '/#topics' },
+      { label: 'CAN通信', href: '/topics/can' },
+      { label: 'WHAT IS CAN' },
+    ]} />
+
+    <PageHeader
+      chapter="CAN · #01 :: FOUNDATION"
+      title="CANとは何か"
+      subtitle="魔法陣の通信路 — その正体。1985年に召喚されたプロトコルが、なぜ40年後も車載の主役であり続けるのか。"
+      meta="読了時間: 約8分 · レベル: 入門 · 最終更新: 2025-05-01"
+      accent="cyan"
+    />
+
+    <div class="grid lg:grid-cols-[1fr_220px] gap-12">
+      <article>
+        <Prose>
+          <p>
+            現代の自動車を「魔法の箱」と呼ぶとすれば、その内部では数十から百以上の「術者 (ECU)」が常に会話している。エンジン制御、ブレーキ、エアバッグ、メータ、カーナビ — すべてが接続され、リアルタイムで情報を交換する。
+          </p>
+          <p>
+            その会話を可能にする呪文の通信路が <strong>CAN (Controller Area Network)</strong> だ。
+          </p>
+
+          <Spell type="spell" label="この記事のゴール">
+            CANが「なぜバス型なのか」「なぜ差動2線なのか」「なぜアドレスがないのか」という<em>設計の理由</em>まで説明できるようになる。仕様を暗記するのではなく、設計思想を掴む。
+          </Spell>
+
+          <h2 id="origin">誕生の背景 — 1985年の課題</h2>
+          <p>
+            1985年当時、自動車の電装化は急速に進んでいた。だが配線は悲惨だった。センサとアクチュエータを直結する<strong>ポイントツーポイント配線</strong>が当たり前で、高級車では100本以上のハーネスが車内を這い回っていた。
+          </p>
+          <p>
+            重い、コストが高い、故障しやすい — この三重苦を解決するためにBoschが設計したのがCANだ。<em>1本の通信線で、すべてのECUを繋ぐ</em>。シンプルな答えだったが、実現には巧妙な仕組みが必要だった。
+          </p>
+
+          <h3>なぜUARTやSPIではダメだったのか</h3>
+          <p>
+            当時から既にUARTやSPIは存在した。なぜ使わなかったのか？
+          </p>
+          <ul>
+            <li><strong>UART</strong> — 1対1通信。30台のECUを繋ぐには30×29÷2 = 435本の接続が必要。論外。</li>
+            <li><strong>SPI</strong> — マスター/スレーブ型。マスターが詰まれば全体が止まる。リアルタイム性が保証できない。</li>
+            <li><strong>LAN系</strong> — 当時のEthernetはリアルタイム保証なし・コスト高・EMI耐性低。</li>
+          </ul>
+          <p>
+            CANが求めたのは「<strong>複数ノードが対等に、非同期で、確実に通信できる</strong>」仕組みだった。
+          </p>
+
+          <h2 id="topology">バス型トポロジ — 全員が同じ線を使う</h2>
+          <p>
+            CANの最大の特徴の一つが<strong>バス型トポロジ</strong>だ。すべてのECUが2本の線に並列でぶら下がる。専用の配線は一切不要。
+          </p>
+          <p>
+            線の両端には<strong>120Ωの終端抵抗</strong>が必要だ。これは電気的反射を防ぐため — 抵抗がないと信号の端が「壁」に当たって跳ね返り、通信が乱れる。
+          </p>
+
+          <Spell type="warning" label="現場の落とし穴">
+            終端抵抗のつけ忘れ、または多すぎる終端は現場でよく起きる。
+            バス上に終端が1個しかない → 通信不安定。3個以上 → インピーダンス不整合で波形歪み。<em>必ず両端に1個ずつ、合計2個。</em>
+          </Spell>
+
+          <h2 id="differential">差動信号とドミナント/レセシブ</h2>
+          <p>
+            CANは2本の線 <code>CAN_H</code> と <code>CAN_L</code> を使い、<strong>差動信号</strong>でデータを伝える。差動とは「2本の電圧差」で情報を表す方式だ。
+          </p>
+
+          <table>
+            <thead>
+              <tr><th>状態</th><th>CAN_H</th><th>CAN_L</th><th>差 (H−L)</th><th>ビット値</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong class="text-cyan-400">Dominant</strong></td>
+                <td>3.5 V</td><td>1.5 V</td><td>≈ 2 V</td><td><strong>0</strong></td>
+              </tr>
+              <tr>
+                <td><strong class="text-purple-400">Recessive</strong></td>
+                <td>2.5 V</td><td>2.5 V</td><td>≈ 0 V</td><td><strong>1</strong></td>
+              </tr>
+            </tbody>
+          </table>
+
+          <p>
+            なぜ「差動」なのか。EMI(電磁ノイズ)への耐性のためだ。エンジンルームのような高ノイズ環境では、2本の線に同じノイズが乗る。差を取れば、ノイズは相殺される。<em>シールドなしで動作できるのはこのためだ。</em>
+          </p>
+
+          <Spell type="rune" label="Dominant が「0」の深い理由">
+            CANの調停ロジックはワイヤードOR。「誰か1人でもDominantを出せば、バス全体がDominantになる。」これが非破壊調停の基礎。ゆえにビット「0」がDominantでなければならない。
+          </Spell>
+
+          <h2 id="message-based">メッセージベースの革命</h2>
+          <p>
+            従来の通信では「誰から誰へ」というアドレスが必要だった。CANはこれを完全に捨てた。
+          </p>
+          <p>
+            CANで流れるのは<strong>メッセージ</strong>であり、そのメッセージには<strong>送信先のアドレスは存在しない</strong>。代わりに「コンテンツを表すID」がついている。各ノードは「自分が必要なIDのメッセージだけを受け取る」という<em>フィルタリング</em>を自力で行う。
+          </p>
+
+          <CodeBlock lang="c" title="受信フィルタの概念 (疑似コード)">
+{`/* CANコントローラの受信フィルタ設定 */
+/* メータECU: 車速(0x100)とエンジン回転数(0x110)だけ受け取りたい */
+
+Can_IdType acceptFilter[] = {
+    0x100,  /* VehicleSpeed — EngineECU が送信 */
+    0x110,  /* EngineRPM   — EngineECU が送信 */
+};
+
+/* IDが合致しないメッセージはコントローラが自動で捨てる */
+/* アプリケーション(SWC)には届かない */`}
+          </CodeBlock>
+
+          <p>
+            このアーキテクチャには大きな利点がある。<strong>新しいECUをバスに追加しても、既存のECUのソフトウェアを一切変えなくていい</strong>。新ECUは必要なIDをフィルタして受け取るだけ。疎結合の極致だ。
+          </p>
+
+          <h2 id="canfd">CAN FDへの進化</h2>
+          <p>
+            Classical CANの最大ペイロードは<strong>8バイト</strong>、最大速度は<strong>1 Mbps</strong>だ。ADASや自動運転の台頭で、これは明らかに不足になった。
+          </p>
+          <p>
+            そこで登場したのが <strong>CAN FD (Flexible Data-rate)</strong>。2つの革新がある。
+          </p>
+          <ul>
+            <li><strong>ペイロード最大 64 バイト</strong> — 8倍。カメラメタデータや大きな診断データも1フレームで。</li>
+            <li><strong>データフェーズで最大 8 Mbps</strong> — アービトレーションフェーズは従来通り低速、データだけ高速化。</li>
+          </ul>
+          <p>
+            CAN FDは物理層をClassical CANと共有できるため、既存のバスに混在も可能 — ただし<strong>ノード全体がFD対応</strong>である必要がある。1台でも非対応がいると、波形が化ける。
+          </p>
+
+          <Spell type="contract" label="CAN FD移行の契約">
+            Classical CANとCAN FDを同一バス上で混在させることはできない。FDへの移行は<em>バス単位で一括</em>で行う必要がある。段階的移行はネットワーク設計で吸収する。
+          </Spell>
+
+          <h2 id="summary">まとめ</h2>
+          <ul>
+            <li>CANは1985年Bosch発案。配線削減と多ノード通信を同時に解決した</li>
+            <li><strong>バス型</strong>トポロジ + <strong>差動2線</strong>(CAN_H / CAN_L) + 両端<strong>120Ω</strong>終端</li>
+            <li>送信先アドレスは無い。<strong>メッセージIDと受信フィルタ</strong>で通信を制御</li>
+            <li>ビット「0」=Dominant、「1」=Recessive。これが調停の根拠</li>
+            <li><strong>CAN FD</strong>でペイロード64byte・最大8Mbpsへ拡張</li>
+          </ul>
+          <p>
+            次の記事では、CANの心臓部である<strong>フレーム構造</strong>を1ビットずつ解剖する。SOFからACKDelimiterまで、全フィールドの意味を読み解こう。
+          </p>
+        </Prose>
+
+        <nav class="mt-20 pt-10 border-t border-cyan-900/30 flex flex-col sm:flex-row items-stretch gap-3">
+          <a href="/topics/can" class="flex-1 group border border-cyan-900/40 hover:border-cyan-700 rounded-lg p-4 transition-colors">
+            <div class="font-mono text-[10px] text-cyan-700 tracking-widest mb-1">← 章扉</div>
+            <div class="text-cyan-300 group-hover:text-cyan-100 transition-colors">CAN通信章へ戻る</div>
+          </a>
+          <a href="/topics/can/frame-structure" class="flex-1 group border border-cyan-900/40 hover:border-cyan-700 rounded-lg p-4 transition-colors text-right">
+            <div class="font-mono text-[10px] text-cyan-700 tracking-widest mb-1">NEXT · CAN.02 →</div>
+            <div class="text-cyan-300 group-hover:text-cyan-100 transition-colors">フレーム構造</div>
+          </a>
+        </nav>
+      </article>
+
+      <aside class="hidden lg:block">
+        <div class="sticky top-28 border-l border-cyan-900/40 pl-5">
+          <div class="font-mono text-[10px] text-cyan-700 tracking-widest mb-4">// TABLE OF CONTENTS</div>
+          <ul class="space-y-3 text-sm">
+            {toc.map(t => (
+              <li>
+                <a href={`#${t.id}`} class="text-gray-500 hover:text-cyan-400 transition-colors block leading-snug">{t.label}</a>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </aside>
+    </div>
+  </div>
+</Page>

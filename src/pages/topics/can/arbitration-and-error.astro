@@ -1,0 +1,271 @@
+---
+import Page from '../../../layouts/Page.astro';
+import Breadcrumb from '../../../components/Breadcrumb.astro';
+import PageHeader from '../../../components/PageHeader.astro';
+import Prose from '../../../components/Prose.astro';
+import Spell from '../../../components/Spell.astro';
+import CodeBlock from '../../../components/CodeBlock.astro';
+
+const toc = [
+  { id: 'arbitration', label: '非破壊的調停の仕組み' },
+  { id: 'wired-or', label: 'ワイヤードOR' },
+  { id: 'priority', label: 'IDと優先度の関係' },
+  { id: 'error-types', label: '5種類のエラー' },
+  { id: 'error-counter', label: 'エラーカウンタと状態遷移' },
+  { id: 'busoff', label: 'Bus-Off — 破門の儀式' },
+  { id: 'summary', label: 'まとめ' },
+];
+---
+
+<Page title="調停とエラー処理 | AUTOSAR.MAGIC" description="CANの非破壊的調停とエラー処理機構。ワイヤードOR・エラーカウンタ・Bus-Offの仕組みを徹底解説。">
+  <div class="max-w-5xl mx-auto px-6">
+    <Breadcrumb items={[
+      { label: 'HOME', href: '/' },
+      { label: 'TOPICS', href: '/#topics' },
+      { label: 'CAN通信', href: '/topics/can' },
+      { label: 'ARBITRATION & ERROR' },
+    ]} />
+
+    <PageHeader
+      chapter="CAN · #03 :: ARBITRATION & ERROR"
+      title="調停とエラー処理"
+      subtitle="仲裁の魔法 — バスを制する者。複数術者の同時詠唱を裁き、エラーを自律的に封じ込める二つの魔法機構。"
+      meta="読了時間: 約14分 · レベル: 中級 · 最終更新: 2025-05-10"
+      accent="purple"
+    />
+
+    <div class="grid lg:grid-cols-[1fr_220px] gap-12">
+      <article>
+        <Prose>
+          <p>
+            CANの二大魔法は<strong>調停 (Arbitration)</strong> と <strong>エラー処理</strong>だ。どちらも「複数ノードが対等に共有バスを使う」という設計の帰結であり、ハードウェアレベルで透過的に動作する。
+          </p>
+          <p>
+            アプリケーション開発者がこれらを意識する機会は少ないが、<em>バス負荷が高いとき</em>や<em>ノードが故障したとき</em>に何が起きているかを知ることは、診断とデバッグの精度を大きく変える。
+          </p>
+
+          <h2 id="arbitration">非破壊的調停の仕組み</h2>
+          <p>
+            CANで最も印象的な機能が<strong>非破壊的調停 (Non-destructive Arbitration)</strong> だ。複数のノードが<em>同時に送信を開始</em>しても、データは壊れず、優先度の高いものが自動的に勝つ。
+          </p>
+          <p>
+            これは魔法のように聞こえるが、原理はシンプルだ。鍵は「<strong>Dominant(0) が Recessive(1) に勝つ</strong>」というバスの物理特性にある。
+          </p>
+
+          <h2 id="wired-or">ワイヤードOR — 調停の物理的基礎</h2>
+          <p>
+            複数のCANノードが同時にバスへ出力するとき、バスの電圧はすべての出力の「論理和(OR)」になる。
+          </p>
+
+          <table>
+            <thead>
+              <tr><th>ノードAが出す</th><th>ノードBが出す</th><th>バス上の状態</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>Dominant (0)</td><td>Dominant (0)</td><td><strong class="text-cyan-400">Dominant</strong></td></tr>
+              <tr><td>Dominant (0)</td><td>Recessive (1)</td><td><strong class="text-cyan-400">Dominant</strong></td></tr>
+              <tr><td>Recessive (1)</td><td>Dominant (0)</td><td><strong class="text-cyan-400">Dominant</strong></td></tr>
+              <tr><td>Recessive (1)</td><td>Recessive (1)</td><td><strong class="text-purple-400">Recessive</strong></td></tr>
+            </tbody>
+          </table>
+
+          <p>
+            「誰か一人でもDominantを出せば、バスはDominantになる」。これがワイヤードORだ。そして<strong>すべてのノードは自分が出したビットとバスの状態を常に比較している</strong>。
+          </p>
+
+          <h2 id="priority">IDと優先度 — 調停シナリオ</h2>
+          <p>
+            ノードAが <code>0x100 (0b00100000000)</code>、ノードBが <code>0x200 (0b01000000000)</code> を同時送信するとどうなるか。
+          </p>
+        </Prose>
+
+        <!-- Arbitration visual -->
+        <div class="my-10 border border-purple-900/40 rounded-xl bg-[#06060f]/80 p-6 overflow-x-auto">
+          <div class="font-mono text-[10px] text-purple-600 tracking-widest mb-6">// ARBITRATION SIMULATION · ID: 0x100 vs 0x200</div>
+          <div class="min-w-[540px] space-y-4 font-mono text-xs">
+            <!-- Header -->
+            <div class="grid grid-cols-[80px_repeat(11,1fr)] gap-1 text-gray-600">
+              <div></div>
+              {[10,9,8,7,6,5,4,3,2,1,0].map(b => (
+                <div class="text-center text-[9px]">bit{b}</div>
+              ))}
+            </div>
+            <!-- Node A: 0x100 = 0b001_0000_0000 -->
+            <div class="grid grid-cols-[80px_repeat(11,1fr)] gap-1 items-center">
+              <div class="text-cyan-400 text-[10px]">Node A<br/>(0x100)</div>
+              {[0,0,1,0,0,0,0,0,0,0,0].map((b, i) => (
+                <div class={`rounded text-center py-1.5 text-[11px] font-bold ${b === 0 ? 'bg-cyan-950/60 text-cyan-300 border border-cyan-700/50' : 'bg-gray-900/40 text-gray-500 border border-gray-700/30'}`}>{b}</div>
+              ))}
+            </div>
+            <!-- Node B: 0x200 = 0b010_0000_0000 -->
+            <div class="grid grid-cols-[80px_repeat(11,1fr)] gap-1 items-center">
+              <div class="text-purple-400 text-[10px]">Node B<br/>(0x200)</div>
+              {[0,1,0,0,0,0,0,0,0,0,0].map((b, i) => (
+                <div class={`rounded text-center py-1.5 text-[11px] font-bold ${b === 0 ? 'bg-purple-950/60 text-purple-300 border border-purple-700/50' : 'bg-gray-900/40 text-gray-500 border border-gray-700/30'}`}>{b}</div>
+              ))}
+            </div>
+            <!-- Bus result -->
+            <div class="grid grid-cols-[80px_repeat(11,1fr)] gap-1 items-center border-t border-cyan-900/30 pt-3">
+              <div class="text-yellow-500 text-[10px]">BUS<br/>(Winner)</div>
+              {[0,0,1,0,0,0,0,0,0,0,0].map((b, i) => (
+                <div class={`rounded text-center py-1.5 text-[11px] font-bold ${b === 0 ? 'bg-yellow-950/40 text-yellow-300 border border-yellow-700/50' : 'bg-gray-900/40 text-gray-500 border border-gray-700/30'}`}>{b}</div>
+              ))}
+            </div>
+            <div class="text-gray-600 text-[10px] mt-2 pt-2 border-t border-gray-800/40">
+              bit9でNodeBは「自分が1(Recessive)を出したのに、バスは0(Dominant)」を検知 → 送信権を放棄。NodeA(0x100)が勝利。
+            </div>
+          </div>
+        </div>
+
+        <Prose>
+          <Spell type="rune" label="調停の掟">
+            ① 送信を開始する(IDビットを最上位から順に出す)<br/>
+            ② 自分が出したビットとバスの状態を比較<br/>
+            ③ <strong>一致 → 継続。不一致 → 即座に送信を止め、受信に切り替える</strong><br/>
+            ④ 最後まで送り続けたノードが勝者。データは一切壊れない
+          </Spell>
+
+          <p>
+            「非破壊的」の意味がわかる。ノードBは負けた瞬間に送信を止め、ノードAの送信内容をそのまま受信できる。<strong>再送の必要もなく、データも失われない</strong>。
+          </p>
+
+          <h2 id="error-types">5種類のエラー</h2>
+          <p>
+            CANはエラー検出に強い。受信ノードが自律的に5種類のエラーを検出し、検出した瞬間に<strong>エラーフレーム</strong>を送出してバスを壊す。
+          </p>
+
+          <table>
+            <thead>
+              <tr><th>エラー種別</th><th>検出方法</th><th>検出者</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Bit Error</strong></td>
+                <td>送信したビットとバスのビットが異なる (調停中を除く)</td>
+                <td>送信ノード</td>
+              </tr>
+              <tr>
+                <td><strong>Stuff Error</strong></td>
+                <td>5連続同値の後に同値ビットが来た (スタッフ違反)</td>
+                <td>全受信ノード</td>
+              </tr>
+              <tr>
+                <td><strong>CRC Error</strong></td>
+                <td>受信したCRC値が計算値と不一致</td>
+                <td>全受信ノード</td>
+              </tr>
+              <tr>
+                <td><strong>Form Error</strong></td>
+                <td>EOF・ACK Delimiter・CRC Delimiterがフォーマット違反</td>
+                <td>全受信ノード</td>
+              </tr>
+              <tr>
+                <td><strong>ACK Error</strong></td>
+                <td>ACKスロットでDominantを検出できなかった (誰も受信しなかった)</td>
+                <td>送信ノード</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <h2 id="error-counter">エラーカウンタと状態遷移</h2>
+          <p>
+            CANの自己回復機構の核心が<strong>エラーカウンタ</strong>だ。各ノードは TEC (Transmit Error Counter) と REC (Receive Error Counter) を内部に持ち、エラー発生のたびに増減する。
+          </p>
+
+          <CodeBlock lang="text" title="エラーカウンタの増減ルール">
+{`TEC/RECの変化量:
+  エラー検出 (送信側)  → TEC += 8
+  エラー検出 (受信側)  → REC += 1
+  正常送信完了         → TEC -= 1
+  正常受信完了         → REC -= 1 (ただし最低0)
+
+ノードの状態:
+  Error Active    TEC < 128 かつ REC < 128
+                  → エラー時にActive Error Frame(6bit Dominant)を送出
+
+  Error Passive   TEC >= 128 または REC >= 128
+                  → エラー時にPassive Error Frame(6bit Recessive)を送出
+                  → バスへの影響が小さくなり、「静かなエラーノード」になる
+
+  Bus-Off         TEC >= 256
+                  → 送信も受信も完全停止。バスから切り離し`}
+          </CodeBlock>
+
+          <!-- State diagram -->
+          <div class="not-prose my-8">
+            <div class="flex items-center justify-center gap-3 flex-wrap">
+              {[
+                { label: 'Error Active', sub: 'TEC<128 REC<128', color: 'border-cyan-700/70 bg-cyan-950/40 text-cyan-300' },
+                { label: '→', sub: 'TEC≥128\nor REC≥128', color: '' },
+                { label: 'Error Passive', sub: 'TEC≥128 or REC≥128', color: 'border-amber-700/70 bg-amber-950/40 text-amber-300' },
+                { label: '→', sub: 'TEC≥256', color: '' },
+                { label: 'Bus-Off', sub: 'TEC≥256', color: 'border-red-700/70 bg-red-950/40 text-red-300' },
+              ].map(s => (
+                s.label === '→' ? (
+                  <div class="text-center">
+                    <div class="text-gray-400 text-xl">→</div>
+                    <div class="font-mono text-[9px] text-gray-600 mt-1">{s.sub}</div>
+                  </div>
+                ) : (
+                  <div class={`border rounded-lg px-5 py-3 text-center ${s.color}`}>
+                    <div class="font-mono text-sm font-bold">{s.label}</div>
+                    <div class="text-[10px] opacity-70 mt-1">{s.sub}</div>
+                  </div>
+                )
+              ))}
+            </div>
+            <div class="text-center font-mono text-[10px] text-gray-600 mt-3">回復: Error Passive → Active (TEC&lt;128かつREC&lt;128) · Bus-Off → Active (128×11bit Recessive検出後)</div>
+          </div>
+
+          <h2 id="busoff">Bus-Off — 破門の儀式</h2>
+          <p>
+            TECが256を超えると、ノードは<strong>Bus-Off</strong>状態に遷移する。これは「このノードは故障しているとみなし、バスから追放する」という儀式だ。
+          </p>
+          <p>
+            Bus-Offになったノードは送信も受信も停止する。バス上の他のノードには影響しない。重要なのは、<em>Bus-Offから回復するには128×11ビットのRecessive列をバス上で検出する</em>必要があること。これで自然に時間がかかり、単発の障害が即座にバスを占領することを防ぐ。
+          </p>
+
+          <Spell type="contract" label="Bus-Off後の処理">
+            AUTOSARでは <code>CanSM (CAN State Manager)</code> がBus-Offを検出し、<code>CanIf</code> → <code>Can</code> ドライバを通じて自動回復(Auto-Recovery) または 手動回復を制御する。回復間隔や最大試行回数はARXMLで設定する。<em>適切な設定なしに高頻度でBus-Offを繰り返すと、ネットワーク全体が不安定になる。</em>
+          </Spell>
+
+          <h2 id="summary">まとめ</h2>
+          <ul>
+            <li><strong>非破壊的調停</strong>: ワイヤードORにより、Dominant(0)が常に勝つ。IDが小さいほど優先度高。</li>
+            <li>送信ノードは自分のビットとバスを常に比較し、不一致を検出した瞬間に送信権を放棄</li>
+            <li>5種類のエラー検出: <strong>Bit / Stuff / CRC / Form / ACK</strong></li>
+            <li>エラーカウンタ (TEC/REC) が3つの状態を制御: <strong>Error Active → Passive → Bus-Off</strong></li>
+            <li>Bus-Offは「破門」。回復には128×11bitのRecessive列が必要</li>
+          </ul>
+          <p>
+            CAN通信章はここまで。次の章では、BSWで触れた<strong>RTE (Runtime Environment)</strong> の世界へ。SWCとBSWを繋ぐ召喚陣の生成と仕組みを、設計ツールとコードの両面から追いかけよう。
+          </p>
+        </Prose>
+
+        <nav class="mt-20 pt-10 border-t border-cyan-900/30 flex flex-col sm:flex-row items-stretch gap-3">
+          <a href="/topics/can/frame-structure" class="flex-1 group border border-cyan-900/40 hover:border-cyan-700 rounded-lg p-4 transition-colors">
+            <div class="font-mono text-[10px] text-cyan-700 tracking-widest mb-1">← PREV · CAN.02</div>
+            <div class="text-cyan-300 group-hover:text-cyan-100 transition-colors">フレーム構造</div>
+          </a>
+          <a href="/topics/can" class="flex-1 group border border-cyan-900/40 hover:border-cyan-700 rounded-lg p-4 transition-colors text-right">
+            <div class="font-mono text-[10px] text-cyan-700 tracking-widest mb-1">章扉 →</div>
+            <div class="text-cyan-300 group-hover:text-cyan-100 transition-colors">CAN通信章へ戻る</div>
+          </a>
+        </nav>
+      </article>
+
+      <aside class="hidden lg:block">
+        <div class="sticky top-28 border-l border-cyan-900/40 pl-5">
+          <div class="font-mono text-[10px] text-cyan-700 tracking-widest mb-4">// TABLE OF CONTENTS</div>
+          <ul class="space-y-3 text-sm">
+            {toc.map(t => (
+              <li>
+                <a href={`#${t.id}`} class="text-gray-500 hover:text-cyan-400 transition-colors block leading-snug">{t.label}</a>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </aside>
+    </div>
+  </div>
+</Page>

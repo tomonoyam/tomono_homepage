@@ -1,0 +1,230 @@
+---
+import Page from '../../../layouts/Page.astro';
+import Breadcrumb from '../../../components/Breadcrumb.astro';
+import PageHeader from '../../../components/PageHeader.astro';
+import Prose from '../../../components/Prose.astro';
+import Spell from '../../../components/Spell.astro';
+import CodeBlock from '../../../components/CodeBlock.astro';
+
+const toc = [
+  { id: 'frame-types', label: 'フレームの種類' },
+  { id: 'data-frame', label: 'データフレーム解剖' },
+  { id: 'fields', label: '各フィールドの意味' },
+  { id: 'id-11-29', label: '11bit vs 29bit ID' },
+  { id: 'bitstuffing', label: 'ビットスタッフィング' },
+  { id: 'crc', label: 'CRC — 呪文の検証' },
+  { id: 'summary', label: 'まとめ' },
+];
+
+const fields = [
+  { bits: '1', name: 'SOF', full: 'Start of Frame', color: 'cyan', desc: '常に Dominant(0)。「これから呪文を詠む」という宣言。すべてのノードがこれを検出してフレーム受信を開始。' },
+  { bits: '11 or 29', name: 'ID', full: 'Identifier', color: 'purple', desc: 'メッセージのコンテンツを表す。アドレスではない。値が小さいほど優先度が高い（調停で勝つ）。11bit=標準、29bit=拡張フォーマット。' },
+  { bits: '1', name: 'RTR', full: 'Remote Transmission Request', color: 'blue', desc: 'Dominant=データフレーム、Recessive=リモートフレーム（データを持たない、相手へのデータ要求）。' },
+  { bits: '1+3 or 2', name: 'IDE / r0', full: 'ID Extension / Reserved', color: 'indigo', desc: '標準/拡張フォーマットの識別と予約ビット。Dominant=標準、Recessive=拡張。' },
+  { bits: '4', name: 'DLC', full: 'Data Length Code', color: 'teal', desc: 'データフィールドのバイト数 (0〜8)。これを見て何バイト読むか決める。' },
+  { bits: '0〜64', name: 'DATA', full: 'Data Field', color: 'green', desc: '実際のペイロード。最大8バイト(Classical)。DLCが0なら存在しない。エンディアンやビット位置はDBC/ARXMLで定義する。' },
+  { bits: '15+1', name: 'CRC', full: 'Cyclic Redundancy Check', color: 'amber', desc: '15bitのCRC値 + 1bit Delimiter(Recessive)。送受信で一致しない場合エラーフレームを送出。CRC多項式は x¹⁵+x¹⁴+x¹⁰+x⁸+x⁷+x⁴+x³+1。' },
+  { bits: '1+1', name: 'ACK', full: 'Acknowledge', color: 'violet', desc: '送信側がRecessive送出 → 受信成功したノードがDominantで上書き。誰もACKしなければ送信側はエラーを検出。' },
+  { bits: '7+3', name: 'EOF/IFS', full: 'End of Frame / Intermission', color: 'gray', desc: 'EOF: 7bitすべてRecessive。フレーム終端の宣言。IFS: 3bit。次フレームまでの最低間隔。' },
+];
+
+const colorMap: Record<string, string> = {
+  cyan:   'bg-cyan-950/40 border-cyan-700/50 text-cyan-300',
+  purple: 'bg-purple-950/40 border-purple-700/50 text-purple-300',
+  blue:   'bg-blue-950/40 border-blue-700/50 text-blue-300',
+  indigo: 'bg-indigo-950/40 border-indigo-700/50 text-indigo-300',
+  teal:   'bg-teal-950/40 border-teal-700/50 text-teal-300',
+  green:  'bg-green-950/40 border-green-700/50 text-green-300',
+  amber:  'bg-amber-950/40 border-amber-700/50 text-amber-300',
+  violet: 'bg-violet-950/40 border-violet-700/50 text-violet-300',
+  gray:   'bg-gray-900/40 border-gray-700/50 text-gray-400',
+};
+---
+
+<Page title="フレーム構造 — 呪文の解剖 | AUTOSAR.MAGIC" description="CANデータフレームの全フィールドを解剖。SOF・ID・DLC・DATA・CRC・ACKの意味と設計の理由。ビットスタッフィングも解説。">
+  <div class="max-w-5xl mx-auto px-6">
+    <Breadcrumb items={[
+      { label: 'HOME', href: '/' },
+      { label: 'TOPICS', href: '/#topics' },
+      { label: 'CAN通信', href: '/topics/can' },
+      { label: 'FRAME STRUCTURE' },
+    ]} />
+
+    <PageHeader
+      chapter="CAN · #02 :: FRAME ANATOMY"
+      title="フレーム構造"
+      subtitle="呪文の解剖 — ビット列の意味。CANフレームは、たった数十ビットの中に通信の全思想を凝縮している。1フィールドずつ読み解こう。"
+      meta="読了時間: 約12分 · レベル: 中級 · 最終更新: 2025-05-05"
+      accent="blue"
+    />
+
+    <div class="grid lg:grid-cols-[1fr_220px] gap-12">
+      <article>
+        <Prose>
+          <p>
+            CANの世界で飛び交う情報の最小単位が<strong>フレーム</strong>だ。TCPパケットのような巨大な構造ではなく、最大でも数十バイトの極めてコンパクトな呪文である。
+          </p>
+          <p>
+            このコンパクトさは設計の妥協ではない。リアルタイム性と確実性を両立するための、徹底した最適化の結果だ。
+          </p>
+
+          <h2 id="frame-types">フレームの種類</h2>
+          <p>CANには4種類のフレームがある。日常的に使うのは<strong>データフレーム</strong>だが、他も知っておく価値がある。</p>
+
+          <table>
+            <thead>
+              <tr><th>フレーム</th><th>用途</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Data Frame</strong></td>
+                <td>実データを搭載して送信する。最も一般的。</td>
+              </tr>
+              <tr>
+                <td><strong>Remote Frame</strong></td>
+                <td>「そのIDのデータを送ってくれ」という要求。RTRビット=Recessive。現代では使用を避けるプロジェクトが多い。</td>
+              </tr>
+              <tr>
+                <td><strong>Error Frame</strong></td>
+                <td>エラー検出ノードが送出する。6〜12bitのDominant列。バスを壊して全ノードにエラーを知らせる。</td>
+              </tr>
+              <tr>
+                <td><strong>Overload Frame</strong></td>
+                <td>受信側が処理時間を要求するとき送出。現代の高速処理ECUではほぼ不使用。</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <h2 id="data-frame">データフレーム解剖</h2>
+          <p>CANデータフレームをビットレベルで見ると以下の構造になる。</p>
+        </Prose>
+
+        <!-- Visual frame diagram -->
+        <div class="my-10 overflow-x-auto">
+          <div class="min-w-[700px]">
+            <div class="flex items-stretch rounded-lg overflow-hidden border border-cyan-900/40 font-mono text-[10px]">
+              {fields.map(f => (
+                <div class={`border-r border-cyan-900/30 last:border-r-0 ${colorMap[f.color]} px-2 py-3 flex flex-col items-center justify-between gap-1 ${f.name === 'DATA' ? 'flex-[3]' : f.name === 'ID' ? 'flex-[2]' : 'flex-1'} min-w-0`}>
+                  <span class="font-bold tracking-wider text-center leading-tight">{f.name}</span>
+                  <span class="opacity-60 text-[9px] text-center">{f.bits}b</span>
+                </div>
+              ))}
+            </div>
+            <div class="text-center text-gray-600 text-[10px] font-mono mt-2">← CAN Data Frame (Standard Format, 11bit ID) →</div>
+          </div>
+        </div>
+
+        <Prose>
+          <h2 id="fields">各フィールドの意味</h2>
+          {fields.map(f => (
+            <div>
+              <h3><code>{f.name}</code> — {f.full}</h3>
+              <p><span class="font-mono text-xs text-gray-500">({f.bits} bit)</span> {f.desc}</p>
+            </div>
+          ))}
+
+          <h2 id="id-11-29">11bit vs 29bit ID</h2>
+          <p>
+            CANには<strong>標準フォーマット (11bit ID)</strong> と <strong>拡張フォーマット (29bit ID)</strong> がある。
+          </p>
+          <ul>
+            <li><strong>標準 (11bit)</strong>: 2048通りのID空間。Classic CANの本来の姿。小規模なネットワーク向け。</li>
+            <li><strong>拡張 (29bit)</strong>: 約5億3700万通りのID空間。大規模・複雑なネットワーク向け。Diagや大型バスで使われることが多い。</li>
+          </ul>
+          <p>
+            両者は同一バス上で混在できるが、<strong>IDビット数が異なるため調停時の優先度の比較に注意が必要</strong>。一般に、標準フォーマットの方が優先される(IDEビット判定)。
+          </p>
+
+          <h2 id="bitstuffing">ビットスタッフィング — 同期の魔術</h2>
+          <p>
+            CANはクロック信号を別線で持たない<strong>非同期通信</strong>だ。では複数ノードはどうやって同期するのか？
+          </p>
+          <p>
+            答えは「信号の遷移(0→1または1→0)を使ってクロックを再同期する」だ。だが、もし長時間ビット値が変化しなければ、同期が乱れる。
+          </p>
+          <p>
+            そこで登場するのが<strong>ビットスタッフィング</strong>。同一値が5ビット連続したら、自動的に逆値の1ビットを挿入する。これにより、最低5ビットに1回は遷移が発生する。
+          </p>
+
+          <CodeBlock lang="text" title="ビットスタッフィングの例">
+{`送信データ:  1 1 1 1 1 0 0 0 0 0 1 0
+              └─5連続─┘         └─5連続─┘
+
+スタッフ後:  1 1 1 1 1 [0] 0 0 0 0 0 [1] 1 0
+                        ↑挿入             ↑挿入
+
+受信側は [スタッフビット] を除いて元に戻す。
+CRC計算の対象はスタッフ前のデータ。`}
+          </CodeBlock>
+
+          <Spell type="warning" label="デバッグ時の注意">
+            ロジアナでCAN波形を見ると、スタッフビットが混入している。多くのツールは自動でデスタッフしてデコードするが、<em>ビット数でフレーム長を手計算するときはスタッフビットを考慮</em>すること。
+          </Spell>
+
+          <h2 id="crc">CRC — 呪文の検証</h2>
+          <p>
+            データが化けていないかを確認するのが<strong>CRC (Cyclic Redundancy Check)</strong>だ。送信側が計算したCRC値を付与し、受信側が同じ計算をして照合する。一致しなければエラーフレームを送出する。
+          </p>
+          <p>
+            ClassicalCANのCRC多項式は15次 — 15ビットのCRC値。CAN FDでは17次または21次となり、より堅牢になった。
+          </p>
+
+          <CodeBlock lang="c" title="CRC計算 (概念)">
+{`/* CANのCRC-15 多項式: x^15 + x^14 + x^10 + x^8 + x^7 + x^4 + x^3 + 1 */
+/* 実際はハードウェア(CANコントローラ)が自動計算する。   */
+/* ソフトウェアで意識することはほぼないが、仕組みは知ろう */
+
+uint16_t can_crc15(const uint8_t *data, size_t bit_len)
+{
+    uint16_t crc = 0;
+    uint16_t poly = 0x4599;  /* CAN CRC-15 polynomial */
+    for (size_t i = 0; i < bit_len; i++) {
+        uint16_t bit = (data[i / 8] >> (7 - i % 8)) & 1;
+        if ((crc >> 14) ^ bit) crc = (crc << 1) ^ poly;
+        else                   crc <<= 1;
+        crc &= 0x7FFF;
+    }
+    return crc;
+}`}
+          </CodeBlock>
+
+          <h2 id="summary">まとめ</h2>
+          <ul>
+            <li>CANフレームは <strong>SOF → ID → RTR/IDE → DLC → DATA → CRC → ACK → EOF</strong></li>
+            <li>IDは「誰宛て」ではなく「何の情報か」を示す。値が小さいほど優先度が高い</li>
+            <li><strong>ビットスタッフィング</strong>が非同期通信の同期を支える。5ビット連続で逆ビット挿入</li>
+            <li><strong>CRC</strong>でビット誤りを検出。エラー検出は全受信ノードが担う</li>
+            <li><strong>ACK</strong>は「受信成功した誰か」がDominantで返す合唱システム</li>
+          </ul>
+          <p>
+            次の記事では、CANの真の魔法 — <strong>調停 (Arbitration)</strong> と <strong>エラー処理</strong>を深掘りする。複数のECUが同時送信したとき、誰が勝つのか。そしてエラーが起きたとき、バスはどう生き残るのか。
+          </p>
+        </Prose>
+
+        <nav class="mt-20 pt-10 border-t border-cyan-900/30 flex flex-col sm:flex-row items-stretch gap-3">
+          <a href="/topics/can/what-is-can" class="flex-1 group border border-cyan-900/40 hover:border-cyan-700 rounded-lg p-4 transition-colors">
+            <div class="font-mono text-[10px] text-cyan-700 tracking-widest mb-1">← PREV · CAN.01</div>
+            <div class="text-cyan-300 group-hover:text-cyan-100 transition-colors">CANとは何か</div>
+          </a>
+          <a href="/topics/can/arbitration-and-error" class="flex-1 group border border-cyan-900/40 hover:border-cyan-700 rounded-lg p-4 transition-colors text-right">
+            <div class="font-mono text-[10px] text-cyan-700 tracking-widest mb-1">NEXT · CAN.03 →</div>
+            <div class="text-cyan-300 group-hover:text-cyan-100 transition-colors">調停とエラー処理</div>
+          </a>
+        </nav>
+      </article>
+
+      <aside class="hidden lg:block">
+        <div class="sticky top-28 border-l border-cyan-900/40 pl-5">
+          <div class="font-mono text-[10px] text-cyan-700 tracking-widest mb-4">// TABLE OF CONTENTS</div>
+          <ul class="space-y-3 text-sm">
+            {toc.map(t => (
+              <li>
+                <a href={`#${t.id}`} class="text-gray-500 hover:text-cyan-400 transition-colors block leading-snug">{t.label}</a>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </aside>
+    </div>
+  </div>
+</Page>
