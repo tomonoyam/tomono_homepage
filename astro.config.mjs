@@ -3,7 +3,7 @@ import tailwind from '@astrojs/tailwind';
 import sitemap from '@astrojs/sitemap';
 
 export default defineConfig({
-  site: 'https://autosar-magic.vercel.app',
+  site: 'https://tomono-homepage.vercel.app',
   integrations: [
     tailwind(),
     sitemap(),
