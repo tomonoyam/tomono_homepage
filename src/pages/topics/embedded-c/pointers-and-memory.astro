@@ -1,0 +1,220 @@
+---
+import Page from '../../../layouts/Page.astro';
+import Breadcrumb from '../../../components/Breadcrumb.astro';
+import PageHeader from '../../../components/PageHeader.astro';
+import Prose from '../../../components/Prose.astro';
+import Spell from '../../../components/Spell.astro';
+import CodeBlock from '../../../components/CodeBlock.astro';
+
+const toc = [
+  { id: 'volatile', label: 'volatile — なぜ必要か' },
+  { id: 'regmap', label: 'レジスタマップアクセス' },
+  { id: 'const', label: 'const と ROM配置' },
+  { id: 'static', label: '静的メモリ戦略' },
+  { id: 'alignment', label: 'アライメントと構造体' },
+  { id: 'summary', label: 'まとめ' },
+];
+---
+
+<Page title="ポインタとメモリ管理 | AUTOSAR.MAGIC" description="組み込みCのポインタ・volatile・レジスタマップ・静的メモリ・アライメントを現場目線で解説。">
+  <div class="max-w-5xl mx-auto px-6">
+    <Breadcrumb items={[
+      { label: 'HOME', href: '/' },
+      { label: 'TOPICS', href: '/#topics' },
+      { label: '組み込みC', href: '/topics/embedded-c' },
+      { label: 'POINTERS & MEMORY' },
+    ]} />
+    <PageHeader
+      chapter="C · #02 :: MEMORY"
+      title="ポインタとメモリ管理"
+      subtitle="記憶の魔術 — アドレスを制する者。volatile・レジスタマップ・静的確保・アライメント。PCのCとは一線を画す組み込みのメモリ操作を体系的に学ぶ。"
+      meta="読了時間: 約14分 · レベル: 中級 · 最終更新: 2026-05-29"
+      accent="green"
+    />
+    <div class="grid lg:grid-cols-[1fr_220px] gap-12">
+      <article>
+        <Prose>
+          <h2 id="volatile">volatile — なぜ必要か</h2>
+          <p>
+            組み込みCで最も重要な修飾子が <code>volatile</code> だ。これを理解せずに組み込みを書くと、コンパイラの最適化によって<strong>「書いたはずのコードが消える」</strong>という怪奇現象に悩まされる。
+          </p>
+          <p>
+            <code>volatile</code> はコンパイラに「この変数は予測不能なタイミングで外部から変化する可能性がある。最適化で省略するな」と宣言する。
+          </p>
+
+          <CodeBlock lang="c" title="volatile なしの問題">
+{`/* NG: volatileなし — コンパイラが最適化で省略する可能性 */
+uint32_t STATUS_REG = *(uint32_t *)0x40001000UL;
+
+while (STATUS_REG == 0u) {   /* ← コンパイラは「STATUS_REGは変わらない」と判断し */
+    ;                         /*   無限ループに最適化する可能性がある */
+}
+
+/* OK: volatile あり — 毎回レジスタを読み直す */
+volatile uint32_t *pStatus = (volatile uint32_t *)0x40001000UL;
+
+while (*pStatus == 0u) {  /* 毎ループで実際にレジスタを読む */
+    ;
+}`}
+          </CodeBlock>
+
+          <h3>volatileが必要な3つのシーン</h3>
+          <ul>
+            <li><strong>ハードウェアI/Oレジスタ</strong>: 読み出すたびに意味が変わる(ステータスレジスタ等)</li>
+            <li><strong>ISR共有変数</strong>: ISR(割込みハンドラ)とメインループで共有する変数</li>
+            <li><strong>マルチコア共有変数</strong>: 別コアのタスクが書き換える変数</li>
+          </ul>
+
+          <Spell type="warning" label="volatileの誤解">
+            <code>volatile</code> は<strong>アトミック性を保証しない</strong>。32bit変数への読み書きが複数の機械語命令になる場合、ISRとの競合でデータが化けることがある。<em>競合を防ぐには別途割込み禁止や排他制御が必要だ。</em>
+          </Spell>
+
+          <h2 id="regmap">レジスタマップアクセス</h2>
+          <p>
+            マイコンのペリフェラルはメモリマップドI/O方式で、特定の<strong>物理アドレス</strong>にアクセスすることで制御する。
+          </p>
+
+          <CodeBlock lang="c" title="レジスタマップの定義パターン">
+{`/* パターン1: マクロで直接アクセス */
+#define CAN0_BASE    0x40006400UL
+#define CAN0_MCR     (*((volatile uint32_t *)(CAN0_BASE + 0x00UL)))
+#define CAN0_MSR     (*((volatile uint32_t *)(CAN0_BASE + 0x04UL)))
+#define CAN0_TSR     (*((volatile uint32_t *)(CAN0_BASE + 0x08UL)))
+
+/* 使用例 */
+CAN0_MCR |= (1UL << 0);   /* INRQ bit をセット */
+
+/* パターン2: 構造体でレジスタを束ねる (ベンダ提供のヘッダが多い) */
+typedef struct {
+    volatile uint32_t MCR;   /* Offset: 0x000 Master Control Register */
+    volatile uint32_t MSR;   /* Offset: 0x004 Master Status Register */
+    volatile uint32_t TSR;   /* Offset: 0x008 Transmit Status Register */
+    uint32_t          RESERVED0[3];  /* 予約領域 */
+    volatile uint32_t RF0R;  /* Offset: 0x01C FIFO 0 Register */
+} CAN_TypeDef;
+
+#define CAN0  ((CAN_TypeDef *)0x40006400UL)
+
+/* 使用例 */
+CAN0->MCR |= CAN_MCR_INRQ;   /* ビット定義マクロを使う */`}
+          </CodeBlock>
+
+          <h3>ビット操作マクロ</h3>
+          <CodeBlock lang="c" title="ビット操作の安全なイディオム">
+{`/* セット: ビットNをセット */
+#define BIT_SET(reg, bit)    ((reg) |=  (1UL << (bit)))
+/* クリア: ビットNをクリア */
+#define BIT_CLR(reg, bit)    ((reg) &= ~(1UL << (bit)))
+/* トグル: ビットNを反転 */
+#define BIT_TOG(reg, bit)    ((reg) ^=  (1UL << (bit)))
+/* テスト: ビットNが1かどうか */
+#define BIT_GET(reg, bit)    (((reg) >>  (bit)) & 1UL)
+
+/* 使用例 */
+BIT_SET(CAN0->MCR, 0U);   /* INRQ bit セット */
+while (BIT_GET(CAN0->MSR, 0U) == 0UL) { ; }  /* INAK確認 */`}
+          </CodeBlock>
+
+          <h2 id="const">const と ROM配置</h2>
+          <p>
+            組み込みでは <code>const</code> 変数をROMに配置することで<strong>RAM消費を削減</strong>できる。テーブルデータ・メッセージ定数・キャリブレーション初期値などに使う。
+          </p>
+
+          <CodeBlock lang="c" title="const の ROM配置">
+{`/* ROM (Flash) に配置される — RAM消費ゼロ */
+static const uint16_t SpeedTable[256] = {
+    0u, 10u, 20u, 30u, /* ... */
+};
+
+/* コンパイラ・リンカスクリプトで配置セクションを指定することも */
+__attribute__((section(".rodata")))
+static const uint8_t SwVersion[4] = {1u, 0u, 0u, 0u};
+
+/* ポインタと const の組み合わせ */
+const uint8_t *p;          /* pが指す先は変更不可、p自体は変更可 */
+uint8_t * const p;         /* p自体は変更不可 (固定アドレス)、指す先は変更可 */
+const uint8_t * const p;   /* 両方変更不可 — レジスタマップに最適 */`}
+          </CodeBlock>
+
+          <h2 id="static">静的メモリ戦略</h2>
+          <p>
+            組み込みではmalloc禁止のため、すべてのメモリは<strong>静的</strong>または<strong>スタック</strong>に確保する。
+          </p>
+          <table>
+            <thead><tr><th>種別</th><th>配置</th><th>使いどころ</th></tr></thead>
+            <tbody>
+              <tr><td>グローバル変数</td><td>BSS/DATA (RAM)</td><td>モジュール状態・共有バッファ</td></tr>
+              <tr><td>static ローカル</td><td>BSS/DATA (RAM)</td><td>関数内の永続状態</td></tr>
+              <tr><td>ローカル変数</td><td>スタック</td><td>一時変数。小さく保つ</td></tr>
+              <tr><td>const グローバル</td><td>RODATA (ROM)</td><td>テーブル・定数</td></tr>
+            </tbody>
+          </table>
+
+          <h2 id="alignment">アライメントと構造体</h2>
+          <p>
+            マイコンは特定のアライメント境界でのメモリアクセスを要求する。構造体メンバの順序次第でパディングが挿入され、<strong>sizeof結果が直感と異なる</strong>ことがある。
+          </p>
+
+          <CodeBlock lang="c" title="構造体パディングの例">
+{`/* パディングあり: 9 bytes ではなく 12 bytes になる */
+typedef struct {
+    uint8_t  a;    /* 1 byte */
+                   /* [パディング 3 bytes] */
+    uint32_t b;    /* 4 bytes, 4byte境界必須 */
+    uint8_t  c;    /* 1 byte */
+                   /* [パディング 3 bytes] */
+} BadLayout_t;     /* sizeof = 12 */
+
+/* 大きい順に並べる: パディングなし */
+typedef struct {
+    uint32_t b;    /* 4 bytes */
+    uint8_t  a;    /* 1 byte */
+    uint8_t  c;    /* 1 byte */
+                   /* [パディング 2 bytes] */
+} BetterLayout_t;  /* sizeof = 8 */
+
+/* CAN受信バッファなど固定レイアウトが必要なら __packed を使う */
+typedef __packed struct {
+    uint8_t  id;
+    uint16_t value;
+    uint8_t  checksum;
+} CanFrame_t;  /* sizeof = 4 (パディングなし) */`}
+          </CodeBlock>
+
+          <Spell type="rune" label="通信バッファの鉄則">
+            CANフレームやUDSメッセージのバッファ構造体には必ず<code>__packed</code>または同等の属性を付ける。そうしないと、構造体の各フィールドへのアクセスが正しいバイト位置を指さない。<em>実際のバス上のデータとCコードのレイアウトを常に一致させる。</em>
+          </Spell>
+
+          <h2 id="summary">まとめ</h2>
+          <ul>
+            <li><code>volatile</code> はI/Oレジスタ・ISR共有変数・マルチコア共有変数に<strong>必須</strong></li>
+            <li>レジスタアクセスはマクロまたは構造体で型安全に。<code>volatile</code>修飾を忘れずに</li>
+            <li><code>const</code> 変数はROMに配置してRAMを節約する</li>
+            <li>メモリはすべて静的確保。スタック変数は小さく保つ</li>
+            <li>構造体は<strong>大きい型から順に並べ</strong>てパディングを最小化する</li>
+          </ul>
+        </Prose>
+        <nav class="mt-20 pt-10 border-t border-green-900/30 flex flex-col sm:flex-row items-stretch gap-3">
+          <a href="/topics/embedded-c/misra-c" class="flex-1 group border border-green-900/40 hover:border-green-700 rounded-lg p-4 transition-colors">
+            <div class="font-mono text-[10px] text-green-700 tracking-widest mb-1">← PREV · C.01</div>
+            <div class="text-green-300 group-hover:text-green-100 transition-colors">MISRA-C</div>
+          </a>
+          <a href="/topics/embedded-c/interrupt-and-register" class="flex-1 group border border-green-900/40 hover:border-green-700 rounded-lg p-4 transition-colors text-right">
+            <div class="font-mono text-[10px] text-green-700 tracking-widest mb-1">NEXT · C.03 →</div>
+            <div class="text-green-300 group-hover:text-green-100 transition-colors">割込みとレジスタ操作</div>
+          </a>
+        </nav>
+      </article>
+      <aside class="hidden lg:block">
+        <div class="sticky top-28 border-l border-green-900/40 pl-5">
+          <div class="font-mono text-[10px] text-green-700 tracking-widest mb-4">// TABLE OF CONTENTS</div>
+          <ul class="space-y-3 text-sm">
+            {toc.map(t => (
+              <li><a href={`#${t.id}`} class="text-gray-500 hover:text-green-400 transition-colors block leading-snug">{t.label}</a></li>
+            ))}
+          </ul>
+        </div>
+      </aside>
+    </div>
+  </div>
+</Page>

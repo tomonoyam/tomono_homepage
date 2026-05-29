@@ -4,7 +4,7 @@ interface Props {
   title: string;
   subtitle?: string;
   meta?: string;
-  accent?: 'cyan' | 'purple' | 'amber' | 'blue';
+  accent?: 'cyan' | 'purple' | 'amber' | 'blue' | 'green';
 }
 const { chapter, title, subtitle, meta, accent = 'cyan' } = Astro.props;
 
@@ -13,6 +13,7 @@ const accentMap = {
   purple: { glow: 'from-purple-500/15 to-transparent', text: 'text-purple-400', bar: 'from-purple-400 to-pink-500' },
   amber:  { glow: 'from-amber-500/15 to-transparent',  text: 'text-amber-400',  bar: 'from-amber-400 to-orange-500' },
   blue:   { glow: 'from-blue-500/15 to-transparent',   text: 'text-blue-400',   bar: 'from-blue-400 to-indigo-500' },
+  green:  { glow: 'from-green-500/15 to-transparent',  text: 'text-green-400',  bar: 'from-green-400 to-teal-500' },
 };
 const a = accentMap[accent];
 ---

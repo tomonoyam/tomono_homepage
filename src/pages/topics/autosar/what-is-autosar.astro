@@ -1,0 +1,155 @@
+---
+import Page from '../../../layouts/Page.astro';
+import Breadcrumb from '../../../components/Breadcrumb.astro';
+import PageHeader from '../../../components/PageHeader.astro';
+import Prose from '../../../components/Prose.astro';
+import Spell from '../../../components/Spell.astro';
+import CodeBlock from '../../../components/CodeBlock.astro';
+
+const toc = [
+  { id: 'before', label: 'AUTOSAR以前の世界' },
+  { id: 'what', label: 'AUTOSARとは何か' },
+  { id: 'goals', label: '三つの目標' },
+  { id: 'stack', label: 'ソフトウェアスタック' },
+  { id: 'partners', label: '誰が作っているか' },
+  { id: 'summary', label: 'まとめ' },
+];
+---
+
+<Page title="AUTOSARとは何か | AUTOSAR.MAGIC" description="AUTOSARの誕生背景・三つの目標・ソフトウェアスタック全体像を入門者向けに解説。">
+  <div class="max-w-5xl mx-auto px-6">
+    <Breadcrumb items={[
+      { label: 'HOME', href: '/' },
+      { label: 'TOPICS', href: '/#topics' },
+      { label: 'AUTOSAR入門', href: '/topics/autosar' },
+      { label: 'WHAT IS AUTOSAR' },
+    ]} />
+    <PageHeader
+      chapter="AUTOSAR · #01 :: FOUNDATION"
+      title="AUTOSARとは何か"
+      subtitle="魔法体系の全体像 — 誕生の必然。2003年、9社の自動車メーカーとサプライヤが描いた「車載ソフトウェアの標準化」という壮大な計画の本質。"
+      meta="読了時間: 約8分 · レベル: 入門 · 最終更新: 2026-05-29"
+      accent="cyan"
+    />
+    <div class="grid lg:grid-cols-[1fr_220px] gap-12">
+      <article>
+        <Prose>
+          <p>
+            AUTOSARを一言で表すなら、<strong>「車載ソフトウェアの共通言語と標準アーキテクチャ」</strong>だ。だが、なぜそんなものが必要だったのか。その問いへの答えが、AUTOSARの本質を語る。
+          </p>
+
+          <Spell type="spell" label="この記事のゴール">
+            「AUTOSARって何ですか？」という問いに、<em>技術の本質と設計の理由</em>で答えられるようになる。仕様書の丸暗記ではなく、なぜそうなっているかを理解する。
+          </Spell>
+
+          <h2 id="before">AUTOSAR以前の世界</h2>
+          <p>2003年以前の車載ソフトウェア開発は、こんな状況だった。</p>
+          <ul>
+            <li>各OEMがバラバラの<strong>独自アーキテクチャ</strong>を持っていた</li>
+            <li>Tier1サプライヤが書いたSWCは<strong>そのOEMにしか使えない</strong></li>
+            <li>ECUが変わるたびに<strong>一から書き直し</strong></li>
+            <li>車1台に100個以上のECUが載るようになり、<strong>複雑さが爆発</strong></li>
+            <li>ソフトウェアの<strong>テスト・検証コストが天文学的</strong>に増大</li>
+          </ul>
+          <p>そして何より、電動化・自動運転の波が来た。制御ロジックの規模は10倍・100倍になる。この状況を旧来の開発手法で乗り越えるのは<em>不可能</em>だった。</p>
+
+          <h2 id="what">AUTOSARとは何か</h2>
+          <p>
+            <strong>AUTOSAR (AUTomotive Open System ARchitecture)</strong> は2003年に設立された業界コンソーシアムであり、そのコンソーシアムが策定する<strong>仕様群</strong>の総称でもある。
+          </p>
+          <p>BMWグループ、Bosch、Continental、DaimlerChrysler、Siemens VDO Automotive (現 Continental)、Ford、PSA、Toyota、Volkswagenの9社が創設メンバーとなった。今では300社以上が参加している。</p>
+
+          <Spell type="rune" label="AUTOSARの核心思想">
+            <strong>「協調して標準化し、競争で差別化する」</strong><br/>
+            (Cooperate on standards, compete on implementation)<br/>
+            — BSWやRTE仕様は共通化する。その上で動くアプリケーション(SWC)は各社の差別化領域。これがAUTOSARの根本哲学だ。
+          </Spell>
+
+          <h2 id="goals">三つの目標</h2>
+
+          <h3>① ソフトウェアの再利用性</h3>
+          <p>標準APIと標準アーキテクチャにより、Tier1が作ったSWCを別のOEMのプロジェクトに持ち込んで使える。テスト済みのコードを使い回せるため、品質コストが下がる。</p>
+
+          <h3>② スケーラビリティ</h3>
+          <p>小さなボディ系ECUから、高性能な自動運転ECUまで、同じアーキテクチャの考え方でスケールできる。Scalability Class (SC1〜SC4) という概念がその表れだ。</p>
+
+          <h3>③ 機能安全の容易化</h3>
+          <p>標準化されたBSWモジュール(AUTOSAR認定を受けたもの)は、ISO 26262の文脈での品質証跡を流用できる。ゼロから証跡を作る必要がなくなる。</p>
+
+          <h2 id="stack">ソフトウェアスタック全体像</h2>
+          <p>AUTOSARのClasic Platformは次の層構造を持つ。</p>
+        </Prose>
+
+        <!-- Full stack diagram -->
+        <div class="my-10 border border-cyan-900/40 rounded-xl bg-[#06060f]/80 overflow-hidden">
+          <div class="px-5 py-3 border-b border-cyan-900/40 font-mono text-[10px] text-cyan-600 tracking-widest">AUTOSAR CLASSIC PLATFORM — FULL STACK</div>
+          {[
+            { label: 'Application Layer',              sub: 'SWC (術者たち) · ビジネスロジック',                    color: 'border-purple-800/50 bg-purple-950/20 text-purple-300' },
+            { label: 'Runtime Environment (RTE)',      sub: '召喚陣 · 生成コード · SWC⇔BSW の仲介',                color: 'border-violet-800/50 bg-violet-950/20 text-violet-300' },
+            { label: 'Services Layer',                 sub: 'OS · ComM · Dcm · Dem · NvM · BswM · EcuM',        color: 'border-cyan-800/50 bg-cyan-950/20 text-cyan-300' },
+            { label: 'ECU Abstraction Layer',          sub: 'CanIf · LinIf · PduR · CanTp · MemIf',              color: 'border-blue-800/50 bg-blue-950/20 text-blue-300' },
+            { label: 'Microcontroller Abstraction (MCAL)', sub: 'Can · Spi · Adc · Dio · Port · Pwm · Gpt',     color: 'border-sky-800/50 bg-sky-950/20 text-sky-300' },
+            { label: 'Complex Drivers (CDD)',          sub: 'ハードウェア直結の特例ドライバ · 層を超える禁忌',      color: 'border-amber-800/50 bg-amber-950/20 text-amber-300' },
+            { label: 'Microcontroller / ECU Hardware', sub: 'レジスタ · ペリフェラル · 物理的な魔法石',            color: 'border-green-800/50 bg-green-950/20 text-green-300' },
+          ].map(layer => (
+            <div class={`border-b border-gray-800/30 last:border-b-0 px-6 py-4 flex items-center gap-4 ${layer.color}`}>
+              <div class="flex-1">
+                <div class="font-mono text-sm font-bold">{layer.label}</div>
+                <div class="text-xs opacity-60 mt-0.5">{layer.sub}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <Prose>
+          <h2 id="partners">誰が何を担うか</h2>
+          <p>AUTOSARエコシステムには複数のプレーヤーがいる。</p>
+          <table>
+            <thead><tr><th>プレーヤー</th><th>担当</th><th>例</th></tr></thead>
+            <tbody>
+              <tr><td><strong>OEM</strong></td><td>システム設計・統合・ARXML仕様定義</td><td>Toyota、BMW、Volkswagen</td></tr>
+              <tr><td><strong>Tier1</strong></td><td>SWC開発・ECU統合・BSW設定</td><td>Bosch、Continental、Denso</td></tr>
+              <tr><td><strong>ツールベンダ</strong></td><td>RTE生成・ARXML設計・BSW設定ツール</td><td>Vector、EB (Elektrobit)、ETAS</td></tr>
+              <tr><td><strong>半導体ベンダ</strong></td><td>MCAL提供・マイコン向けBSW</td><td>Renesas、Infineon、NXP</td></tr>
+            </tbody>
+          </table>
+
+          <Spell type="contract" label="現場の現実">
+            「標準仕様があれば誰でも繋がる」は理想だ。実際には<em>ツールベンダや半導体ベンダの実装が微妙に違い</em>、統合テストで問題が出ることは珍しくない。AUTOSARは「仕様」であり「製品」ではない。実装品質は各社次第だ。
+          </Spell>
+
+          <h2 id="summary">まとめ</h2>
+          <ul>
+            <li>AUTOSARは<strong>業界コンソーシアムと、その策定する仕様群</strong>の両方を指す</li>
+            <li>誕生の動機: <strong>複雑化・コスト爆発・再利用不能</strong>という三重苦を解決するため</li>
+            <li>核心思想: <strong>「標準化で協調し、実装で競争する」</strong></li>
+            <li>スタック: Application → RTE → Services → ECU Abstraction → MCAL → HW</li>
+            <li>OEM・Tier1・ツールベンダ・半導体ベンダが役割分担して<strong>エコシステムを形成</strong></li>
+          </ul>
+          <p>次の記事では、2017年に登場した <strong>Adaptive Platform</strong> がClassic Platformと何が違うのかを比較する。</p>
+        </Prose>
+
+        <nav class="mt-20 pt-10 border-t border-cyan-900/30 flex flex-col sm:flex-row items-stretch gap-3">
+          <a href="/topics/autosar" class="flex-1 group border border-cyan-900/40 hover:border-cyan-700 rounded-lg p-4 transition-colors">
+            <div class="font-mono text-[10px] text-cyan-700 tracking-widest mb-1">← 章扉</div>
+            <div class="text-cyan-300 group-hover:text-cyan-100 transition-colors">AUTOSAR入門章へ戻る</div>
+          </a>
+          <a href="/topics/autosar/cp-vs-ap" class="flex-1 group border border-cyan-900/40 hover:border-cyan-700 rounded-lg p-4 transition-colors text-right">
+            <div class="font-mono text-[10px] text-cyan-700 tracking-widest mb-1">NEXT · AUTOSAR.02 →</div>
+            <div class="text-cyan-300 group-hover:text-cyan-100 transition-colors">Classic vs Adaptive</div>
+          </a>
+        </nav>
+      </article>
+      <aside class="hidden lg:block">
+        <div class="sticky top-28 border-l border-cyan-900/40 pl-5">
+          <div class="font-mono text-[10px] text-cyan-700 tracking-widest mb-4">// TABLE OF CONTENTS</div>
+          <ul class="space-y-3 text-sm">
+            {toc.map(t => (
+              <li><a href={`#${t.id}`} class="text-gray-500 hover:text-cyan-400 transition-colors block leading-snug">{t.label}</a></li>
+            ))}
+          </ul>
+        </div>
+      </aside>
+    </div>
+  </div>
+</Page>

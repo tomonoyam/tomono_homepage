@@ -1,0 +1,170 @@
+---
+import Page from '../../../layouts/Page.astro';
+import Breadcrumb from '../../../components/Breadcrumb.astro';
+import PageHeader from '../../../components/PageHeader.astro';
+import Prose from '../../../components/Prose.astro';
+import Spell from '../../../components/Spell.astro';
+
+const toc = [
+  { id: 'why-ap', label: 'なぜAdaptive Platformが必要か' },
+  { id: 'comparison', label: 'CP vs AP 比較表' },
+  { id: 'cp-strength', label: 'CPの強み' },
+  { id: 'ap-strength', label: 'APの強み' },
+  { id: 'coexistence', label: '共存するECUアーキテクチャ' },
+  { id: 'summary', label: 'まとめ' },
+];
+
+const compare = [
+  { item: 'ターゲット',       cp: 'ボディ系・パワトレ・安全系 ECU',   ap: '自動運転・ADAS・HPC' },
+  { item: 'OS',               cp: 'AUTOSAR OS (OSEK準拠)',           ap: 'POSIX準拠 OS (Linux系)' },
+  { item: 'スケジューリング', cp: '静的・固定優先度',                 ap: '動的・プロセスベース' },
+  { item: '通信',             cp: 'CAN/LIN/FlexRay (シグナル)',      ap: 'Ethernet / SOME/IP / DDS' },
+  { item: 'メモリ',           cp: '静的確保 (malloc禁止)',            ap: '動的確保あり (STLも使用可)' },
+  { item: '言語',             cp: 'C (MISRA-C)',                     ap: 'C++14以降 (MISRA-C++ 推奨)' },
+  { item: '開発スタイル',     cp: 'ARXMLベース・RTE生成',             ap: 'マニフェスト (JSON/ARXML)・ara::com' },
+  { item: '機能安全',         cp: 'ISO 26262 ASIL-D 対応済み',       ap: 'ISO 26262 対応進行中',  },
+  { item: 'OTA更新',          cp: '困難 (静的構成)',                  ap: '設計から対応',  },
+  { item: '代表ECU',          cp: 'エンジン・ブレーキ・エアバッグ',    ap: 'ドメインコントローラ・自動運転ECU' },
+];
+---
+
+<Page title="Classic vs Adaptive Platform | AUTOSAR.MAGIC" description="AUTOSAR Classic PlatformとAdaptive Platformの違いを徹底比較。OS・通信・開発スタイル・機能安全の差異を解説。">
+  <div class="max-w-5xl mx-auto px-6">
+    <Breadcrumb items={[
+      { label: 'HOME', href: '/' },
+      { label: 'TOPICS', href: '/#topics' },
+      { label: 'AUTOSAR入門', href: '/topics/autosar' },
+      { label: 'CP VS AP' },
+    ]} />
+    <PageHeader
+      chapter="AUTOSAR · #02 :: PLATFORMS"
+      title="Classic vs Adaptive Platform"
+      subtitle="二つの魔法体系 — 用途による分岐。同じAUTOSARというブランドを持ちながら、設計哲学が180度異なる二つのプラットフォームを対比する。"
+      meta="読了時間: 約12分 · レベル: 中級 · 最終更新: 2026-05-29"
+      accent="cyan"
+    />
+    <div class="grid lg:grid-cols-[1fr_220px] gap-12">
+      <article>
+        <Prose>
+          <p>
+            2003年に誕生したAUTOSAR Classic Platform (CP) は、長年にわたって車載ソフトウェアの標準として機能してきた。だが2017年、全く異なる設計思想を持つ <strong>AUTOSAR Adaptive Platform (AP)</strong> が登場した。
+          </p>
+          <p>なぜ同じAUTOSARが二つのプラットフォームを持つのか。</p>
+
+          <h2 id="why-ap">なぜAdaptive Platformが必要か</h2>
+          <p>Classic Platformは「<em>リアルタイム・静的・確定論的</em>」に最適化されている。それはエンジン制御やブレーキには完璧な設計だ。だが自動運転が求めるものは違った。</p>
+          <ul>
+            <li><strong>カメラ・LiDARのデータをGPUで処理</strong> → Linux + 動的プロセスが向いている</li>
+            <li><strong>OTA (Over-the-Air) アップデート</strong> → 静的構成のCPでは設計が困難</li>
+            <li><strong>機械学習モデルのデプロイ</strong> → C++のSTL・動的メモリが必要</li>
+            <li><strong>SOA (Service-Oriented Architecture)</strong> → SOME/IP / DDS による柔軟な通信</li>
+          </ul>
+          <p>Classic Platformにこれを押し込むのは無理があった。だからAdaptive Platformが生まれた。</p>
+
+          <h2 id="comparison">CP vs AP 徹底比較</h2>
+        </Prose>
+
+        <!-- Comparison table -->
+        <div class="my-8 border border-cyan-900/40 rounded-xl bg-[#0a0a1f]/60 overflow-hidden">
+          <div class="grid grid-cols-[140px_1fr_1fr] border-b border-cyan-900/40">
+            <div class="px-4 py-3 font-mono text-[10px] text-gray-600"></div>
+            <div class="px-4 py-3 font-mono text-[11px] text-cyan-400 font-bold border-l border-cyan-900/40">Classic Platform (CP)</div>
+            <div class="px-4 py-3 font-mono text-[11px] text-purple-400 font-bold border-l border-cyan-900/40">Adaptive Platform (AP)</div>
+          </div>
+          {compare.map(row => (
+            <div class="grid grid-cols-[140px_1fr_1fr] border-b border-gray-800/30 last:border-b-0 hover:bg-cyan-950/10 transition-colors">
+              <div class="px-4 py-3 font-mono text-[10px] text-gray-500 flex items-center">{row.item}</div>
+              <div class="px-4 py-3 text-sm text-gray-300 border-l border-gray-800/20 flex items-center">{row.cp}</div>
+              <div class="px-4 py-3 text-sm text-gray-300 border-l border-gray-800/20 flex items-center">{row.ap}</div>
+            </div>
+          ))}
+        </div>
+
+        <Prose>
+          <h2 id="cp-strength">CPの強み — なくなるわけではない</h2>
+          <p>Adaptive Platformが登場しても、Classic Platformが廃れることはない。その強みは絶対的だ。</p>
+          <ul>
+            <li><strong>機能安全 ASIL-D</strong>: ブレーキ・エアバッグ・ステアリングは ASIL-D が必須。CPはこれを成熟した実績で支える。</li>
+            <li><strong>決定論的タイミング</strong>: 1ms・0.1ms単位の制御はCPのOSEK型OSが得意。APのLinux系では保証が難しい。</li>
+            <li><strong>低消費電力・低コスト</strong>: ボディ系ECUは小型マイコンで動けばいい。Linuxを動かすには過剰だ。</li>
+            <li><strong>実績と成熟度</strong>: 20年以上の現場実績。既存の開発プロセス・ツール・エンジニア資産が豊富。</li>
+          </ul>
+
+          <h2 id="ap-strength">APの強み — 新世代ECUの武器</h2>
+          <ul>
+            <li><strong>SOA (Service-Oriented Architecture)</strong>: <code>ara::com</code> APIによるサービス発見・購読。マイクロサービス的な疎結合設計。</li>
+            <li><strong>動的構成</strong>: 新しいFunctionGroupをデプロイできる。OTA更新が設計から組み込まれている。</li>
+            <li><strong>C++の豊かな表現力</strong>: テンプレート・スマートポインタ・STL。現代的なソフトウェアエンジニアリングが使える。</li>
+            <li><strong>高性能コンピューティング</strong>: GPU・NPUとの連携、HPC (High Performance Computer) ECUに適合。</li>
+          </ul>
+
+          <h2 id="coexistence">共存するECUアーキテクチャ</h2>
+          <p>現在の車両では、CPとAPが<em>共存する</em>アーキテクチャが一般的だ。</p>
+        </Prose>
+
+        <div class="my-8 border border-cyan-900/40 rounded-xl bg-[#06060f]/80 p-6">
+          <div class="font-mono text-[10px] text-cyan-600 tracking-widest mb-6">// VEHICLE ECU ARCHITECTURE (典型例)</div>
+          <div class="grid md:grid-cols-2 gap-4">
+            <div class="border border-purple-700/50 rounded-lg bg-purple-950/20 p-4">
+              <div class="font-mono text-xs text-purple-400 font-bold mb-3">Adaptive Platform ECU</div>
+              <div class="space-y-1.5 font-mono text-[11px] text-gray-400">
+                <div>● 自動運転コンピュータ</div>
+                <div>● カメラ/LiDAR処理</div>
+                <div>● V2X通信</div>
+                <div>● OTAマネージャ</div>
+              </div>
+              <div class="mt-3 text-[9px] font-mono text-purple-600">SOME/IP · Ethernet · Linux系OS</div>
+            </div>
+            <div class="border border-cyan-700/50 rounded-lg bg-cyan-950/20 p-4">
+              <div class="font-mono text-xs text-cyan-400 font-bold mb-3">Classic Platform ECU群</div>
+              <div class="space-y-1.5 font-mono text-[11px] text-gray-400">
+                <div>● エンジン制御 (ASIL-D)</div>
+                <div>● ブレーキ (ASIL-D)</div>
+                <div>● エアバッグ (ASIL-D)</div>
+                <div>● ボディ系 (QM〜ASIL-B)</div>
+              </div>
+              <div class="mt-3 text-[9px] font-mono text-cyan-600">CAN/CAN-FD · AUTOSAR OS · C/MISRA-C</div>
+            </div>
+          </div>
+          <div class="mt-4 text-center font-mono text-[10px] text-gray-600">↕ Gateway ECU (ゲートウェイ) ↕ 両者をブリッジ</div>
+        </div>
+
+        <Prose>
+          <Spell type="rune" label="エンジニアとしての戦略">
+            今CPを学ぶことは無駄にならない。APのアーキテクチャもCPの概念(ポート・インターフェース・BSW)から発展しており、CPを知っていればAPの学習曲線は緩やかになる。<em>まずCPで基礎を固め、APは次のステップとして学ぶ</em>のが現場エンジニアの王道だ。
+          </Spell>
+
+          <h2 id="summary">まとめ</h2>
+          <ul>
+            <li>Classic Platform: <strong>リアルタイム・静的・ASIL-D</strong>。安全系・制御系の主役は当分変わらない</li>
+            <li>Adaptive Platform: <strong>動的・POSIX・C++・SOA</strong>。自動運転・ADAS・HPCの新世代</li>
+            <li>現実の車両では<strong>両者が共存</strong>。GatewayがCAN⇔Ethernetを橋渡しする</li>
+            <li>CPの知識はAPへの橋渡しになる。<em>順番に学べ</em></li>
+          </ul>
+          <p>次の記事では、AUTOSAR開発で毎日触れる <strong>ARXMLとツールチェーン</strong> の全体像を整理する。</p>
+        </Prose>
+
+        <nav class="mt-20 pt-10 border-t border-cyan-900/30 flex flex-col sm:flex-row items-stretch gap-3">
+          <a href="/topics/autosar/what-is-autosar" class="flex-1 group border border-cyan-900/40 hover:border-cyan-700 rounded-lg p-4 transition-colors">
+            <div class="font-mono text-[10px] text-cyan-700 tracking-widest mb-1">← PREV · AUTOSAR.01</div>
+            <div class="text-cyan-300 group-hover:text-cyan-100 transition-colors">AUTOSARとは何か</div>
+          </a>
+          <a href="/topics/autosar/arxml-and-tools" class="flex-1 group border border-cyan-900/40 hover:border-cyan-700 rounded-lg p-4 transition-colors text-right">
+            <div class="font-mono text-[10px] text-cyan-700 tracking-widest mb-1">NEXT · AUTOSAR.03 →</div>
+            <div class="text-cyan-300 group-hover:text-cyan-100 transition-colors">ARXMLとツールチェーン</div>
+          </a>
+        </nav>
+      </article>
+      <aside class="hidden lg:block">
+        <div class="sticky top-28 border-l border-cyan-900/40 pl-5">
+          <div class="font-mono text-[10px] text-cyan-700 tracking-widest mb-4">// TABLE OF CONTENTS</div>
+          <ul class="space-y-3 text-sm">
+            {toc.map(t => (
+              <li><a href={`#${t.id}`} class="text-gray-500 hover:text-cyan-400 transition-colors block leading-snug">{t.label}</a></li>
+            ))}
+          </ul>
+        </div>
+      </aside>
+    </div>
+  </div>
+</Page>

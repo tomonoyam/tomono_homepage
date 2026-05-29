@@ -1,0 +1,220 @@
+---
+import Page from '../../../layouts/Page.astro';
+import Breadcrumb from '../../../components/Breadcrumb.astro';
+import PageHeader from '../../../components/PageHeader.astro';
+import Prose from '../../../components/Prose.astro';
+import Spell from '../../../components/Spell.astro';
+import CodeBlock from '../../../components/CodeBlock.astro';
+
+const toc = [
+  { id: 'isr', label: 'ISRの基本' },
+  { id: 'shared', label: 'ISR共有変数の危険' },
+  { id: 'critical', label: 'クリティカルセクション' },
+  { id: 'latency', label: '割込みレイテンシ' },
+  { id: 'nested', label: 'ネスト割込み' },
+  { id: 'summary', label: 'まとめ' },
+];
+---
+
+<Page title="割込みとレジスタ操作 | AUTOSAR.MAGIC" description="組み込みCの割込み処理。ISR・volatile・クリティカルセクション・割込みレイテンシを現場目線で解説。">
+  <div class="max-w-5xl mx-auto px-6">
+    <Breadcrumb items={[
+      { label: 'HOME', href: '/' },
+      { label: 'TOPICS', href: '/#topics' },
+      { label: '組み込みC', href: '/topics/embedded-c' },
+      { label: 'INTERRUPT & REGISTER' },
+    ]} />
+    <PageHeader
+      chapter="C · #03 :: INTERRUPT"
+      title="割込みとレジスタ操作"
+      subtitle="時間の魔法 — 非同期世界を制御する。割込みはリアルタイムシステムの心臓部。正しく使えば強力な武器、間違えれば沈黙のバグの温床。"
+      meta="読了時間: 約15分 · レベル: 中級 · 最終更新: 2026-05-29"
+      accent="green"
+    />
+    <div class="grid lg:grid-cols-[1fr_220px] gap-12">
+      <article>
+        <Prose>
+          <p>
+            割込み (Interrupt) はハードウェアから「今すぐ処理せよ」という通知だ。CAN受信・タイマ満了・ADC変換完了 — これらのイベントは<em>予測不能なタイミングで</em>発生する。割込みなしでは、これらをポーリングで監視するしかなく、CPU時間を無駄に消費する。
+          </p>
+          <p>
+            AUTOSARのBSWでは割込みをCat1/Cat2 ISRとして管理するが、<strong>低レイヤでのISRの正しい書き方</strong>はどの開発でも必須の知識だ。
+          </p>
+
+          <h2 id="isr">ISRの基本</h2>
+          <p>ISR (Interrupt Service Routine) はハードウェア割込みに対応する関数だ。</p>
+
+          <CodeBlock lang="c" title="ISRの基本構造 (マイコン依存部分あり)">
+{`/* AUTOSARのCat2 ISR宣言 */
+ISR(CanRxIsr)   /* OSEK/AUTOSAR OS マクロ */
+{
+    /* (1) 割込み要因フラグをクリア (最初にやる! 再入防止) */
+    CAN0->RF0R = CAN_RF0R_RFOM0;   /* FIFOメッセージ取り出し */
+
+    /* (2) 最小限の処理だけ行う */
+    uint32_t id  = (CAN0->sFIFOMailBox[0].RIR >> 21) & 0x7FFU;
+    uint8_t  dlc = (uint8_t)(CAN0->sFIFOMailBox[0].RDTR & 0x0FU);
+
+    g_rxBuffer[g_rxWriteIdx].id  = id;
+    g_rxBuffer[g_rxWriteIdx].dlc = dlc;
+    g_rxWriteIdx = (g_rxWriteIdx + 1u) & (RX_BUF_SIZE - 1u);
+
+    /* (3) フラグをセットしてメインループ(またはタスク)へ委ねる */
+    g_canRxFlag = TRUE;
+
+    /* 重い処理はISR内でやらない! */
+}
+
+/* メインループまたはAUTOSAR Runnable */
+void ProcessCanRx(void)
+{
+    if (g_canRxFlag == TRUE) {
+        g_canRxFlag = FALSE;
+        /* ここで受信データを処理 */
+    }
+}`}
+          </CodeBlock>
+
+          <Spell type="rune" label="ISRの黄金律">
+            ① <strong>短く終わらせる</strong>: ISRが長いと他の割込みが遅延する。重い処理はフラグを立てて委ねる。<br/>
+            ② <strong>最初にフラグをクリア</strong>: フラグをクリアする前に割込み要因が再発すると取りこぼす。<br/>
+            ③ <strong>ISR内でブロックしない</strong>: WaitEvent・sleep・ポーリングは絶対禁止。
+          </Spell>
+
+          <h2 id="shared">ISR共有変数の危険</h2>
+          <p>
+            メインループとISRが同じ変数にアクセスするとき、<strong>データ競合</strong>が発生する可能性がある。
+          </p>
+
+          <CodeBlock lang="c" title="競合バグの例">
+{`/* 32bit変数 g_counter をメインが読み、ISRが書く */
+static volatile uint32_t g_counter = 0u;
+
+/* ISR */
+ISR(TimerIsr) { g_counter++; }
+
+/* メインループ */
+void Main(void)
+{
+    uint32_t snapshot = g_counter;  /* ← 問題なし (32bit read はアトミックかも) */
+    /* しかし: */
+    g_counter += 100u;              /* ← read-modify-write は3命令! ISRが割り込む可能性 */
+}`}
+          </CodeBlock>
+
+          <p>
+            <code>g_counter += 100u</code> は「読む → 加算 → 書く」の3命令だ。読んだ直後にISRが走って<code>g_counter++</code>を実行すると、ISRの更新が消える(ロスト・アップデート)。
+          </p>
+
+          <h2 id="critical">クリティカルセクション</h2>
+          <p>
+            競合を防ぐには、<strong>クリティカルセクション</strong>でその区間中の割込みを禁止する。
+          </p>
+
+          <CodeBlock lang="c" title="クリティカルセクションのパターン">
+{`/* パターン1: 割込み全禁止/再許可 (単純だが影響範囲が大きい) */
+void SafeIncrement(void)
+{
+    uint32_t primask;
+    primask = __get_PRIMASK();     /* 現在の割込みマスク状態を保存 */
+    __disable_irq();               /* 全割込み禁止 */
+
+    g_counter += 100u;             /* クリティカルセクション */
+
+    __set_PRIMASK(primask);        /* 元の状態に戻す (再許可) */
+}
+
+/* パターン2: AUTOSARマクロ (推奨) */
+void SafeIncrement_AUTOSAR(void)
+{
+    SchM_Enter_MyModule_ExclusiveArea();   /* BSW Schedulerが管理 */
+    g_counter += 100u;
+    SchM_Exit_MyModule_ExclusiveArea();
+}
+
+/* パターン3: 特定IRQだけ禁止 (影響を最小化) */
+void SafeIncrement_Specific(void)
+{
+    NVIC_DisableIRQ(CAN0_RX0_IRQn);
+    g_counter += 100u;
+    NVIC_EnableIRQ(CAN0_RX0_IRQn);
+}`}
+          </CodeBlock>
+
+          <Spell type="warning" label="禁止区間は最短に">
+            割込み禁止区間が長いほど、他の割込み(タイマ・CAN受信等)の応答が遅れる。禁止区間は<strong>2〜3命令</strong>に抑えるのが原則。長いならデータ構造を見直す。
+          </Spell>
+
+          <h2 id="latency">割込みレイテンシ</h2>
+          <p>
+            ハードウェアが割込みを発生させてから、ISRの最初の命令が実行されるまでの時間を<strong>割込みレイテンシ</strong>という。
+          </p>
+          <p>レイテンシの主な要因:</p>
+          <ul>
+            <li><strong>パイプラインフラッシュ</strong>: 現在実行中の命令の完了待ち</li>
+            <li><strong>コンテキスト保存</strong>: CPU レジスタをスタックに保存</li>
+            <li><strong>割込み禁止区間</strong>: 別のISRやクリティカルセクション実行中</li>
+            <li><strong>割込み優先度</strong>: より高優先度の割込みが処理中</li>
+          </ul>
+          <p>
+            ASIL要件のある機能では、最悪ケースの割込みレイテンシを<strong>計算・測定して仕様書に記録</strong>する必要がある。
+          </p>
+
+          <h2 id="nested">ネスト割込みと優先度</h2>
+          <p>
+            Cortex-M系マイコンでは、より高優先度の割込みが現在のISR実行中に発生した場合、<strong>ISRをプリエンプトして上位ISRを実行する</strong>ネスト割込みが可能だ。
+          </p>
+
+          <CodeBlock lang="c" title="NVIC 優先度設定 (Cortex-M)">
+{`/* 低い数値 = 高優先度 (0が最高) */
+
+/* CAN受信: 高優先度 (タイミングクリティカル) */
+NVIC_SetPriority(CAN0_RX0_IRQn, 1U);
+NVIC_EnableIRQ(CAN0_RX0_IRQn);
+
+/* UART受信: 低優先度 (ログ出力等) */
+NVIC_SetPriority(USART1_IRQn, 5U);
+NVIC_EnableIRQ(USART1_IRQn);
+
+/* AUTOSARでは OSタスクとISR優先度の整合性に注意!
+   AUTOSAR OS の ActivateTask と ISR Category の割り当てが
+   マイコンのNVIC優先度と対応している必要がある */`}
+          </CodeBlock>
+
+          <Spell type="contract" label="AUTOSARとNVICの整合">
+            AUTOSAR OS (OSEK) の Cat2 ISR は NVIC 優先度とマッピングされる。AUTOSAR OS タスクよりも Cat2 ISR の方が常に優先される設定にしなければならない。<em>AUTOSARのBSW設定ツールがこのマッピングを自動設定するが、MCU固有の制約は手動確認が必要。</em>
+          </Spell>
+
+          <h2 id="summary">まとめ</h2>
+          <ul>
+            <li>ISRは<strong>短く・ブロックせず・最初にフラグクリア</strong>の三原則</li>
+            <li>ISR共有変数は必ず<code>volatile</code>修飾し、競合が起きる区間は<strong>クリティカルセクションで保護</strong></li>
+            <li>割込み禁止区間は<strong>最短に</strong>。長いとシステム全体のレイテンシが悪化</li>
+            <li>NVIC優先度はAUTOSAR OSのタスク優先度と<strong>整合して設定</strong>する</li>
+          </ul>
+          <p>組み込みC章はここまで。次はいよいよ最後の章 — <strong>車載ソフト設計</strong>で機能安全・FMEA・リアルタイム設計を語ろう。</p>
+        </Prose>
+        <nav class="mt-20 pt-10 border-t border-green-900/30 flex flex-col sm:flex-row items-stretch gap-3">
+          <a href="/topics/embedded-c/pointers-and-memory" class="flex-1 group border border-green-900/40 hover:border-green-700 rounded-lg p-4 transition-colors">
+            <div class="font-mono text-[10px] text-green-700 tracking-widest mb-1">← PREV · C.02</div>
+            <div class="text-green-300 group-hover:text-green-100 transition-colors">ポインタとメモリ管理</div>
+          </a>
+          <a href="/topics/embedded-c" class="flex-1 group border border-green-900/40 hover:border-green-700 rounded-lg p-4 transition-colors text-right">
+            <div class="font-mono text-[10px] text-green-700 tracking-widest mb-1">章扉 →</div>
+            <div class="text-green-300 group-hover:text-green-100 transition-colors">組み込みC章へ戻る</div>
+          </a>
+        </nav>
+      </article>
+      <aside class="hidden lg:block">
+        <div class="sticky top-28 border-l border-green-900/40 pl-5">
+          <div class="font-mono text-[10px] text-green-700 tracking-widest mb-4">// TABLE OF CONTENTS</div>
+          <ul class="space-y-3 text-sm">
+            {toc.map(t => (
+              <li><a href={`#${t.id}`} class="text-gray-500 hover:text-green-400 transition-colors block leading-snug">{t.label}</a></li>
+            ))}
+          </ul>
+        </div>
+      </aside>
+    </div>
+  </div>
+</Page>

@@ -1,0 +1,121 @@
+---
+import Page from '../../../layouts/Page.astro';
+import Breadcrumb from '../../../components/Breadcrumb.astro';
+import PageHeader from '../../../components/PageHeader.astro';
+
+const articles = [
+  {
+    slug: 'misra-c',
+    no: '01',
+    title: 'MISRA-C — 安全の掟',
+    sub: '術者の言語規律 — なぜ制約が強さになるか',
+    desc: 'MISRA-C:2012の必須ルール・推奨ルール。malloc禁止・goto禁止・再帰禁止。一見厳格な制約が、いかに車載ソフトの品質を守るかを解く。',
+    level: '入門',
+    levelColor: 'text-green-400 border-green-800/50',
+    time: '10分',
+  },
+  {
+    slug: 'pointers-and-memory',
+    no: '02',
+    title: 'ポインタとメモリ管理',
+    sub: '記憶の魔術 — アドレスを制する者',
+    desc: 'volatile修飾子・レジスタマップ・静的メモリ確保。組み込みでのポインタは「危険な魔術」ではなく「必然のツール」として使いこなす。',
+    level: '中級',
+    levelColor: 'text-blue-400 border-blue-800/50',
+    time: '14分',
+  },
+  {
+    slug: 'interrupt-and-register',
+    no: '03',
+    title: '割込みとレジスタ操作',
+    sub: '時間の魔法 — 非同期世界を制御する',
+    desc: 'ISR・volatile・クリティカルセクション・ビット操作マクロ。ハードウェアと直接対話する低レイヤの技術を、安全に使うための知識。',
+    level: '中級',
+    levelColor: 'text-blue-400 border-blue-800/50',
+    time: '15分',
+  },
+];
+---
+
+<Page title="組み込みC — 術者の言語 | AUTOSAR.MAGIC" description="組み込みCの基礎。MISRA-C・ポインタ・volatile・割込み・レジスタ操作をまとめた章扉。">
+  <div class="max-w-6xl mx-auto px-6">
+    <Breadcrumb items={[
+      { label: 'HOME', href: '/' },
+      { label: 'TOPICS', href: '/#topics' },
+      { label: '組み込みC' },
+    ]} />
+    <PageHeader
+      chapter="CHAPTER 07 :: EMBEDDED C"
+      title="組み込みC — 術者の言語"
+      subtitle="車載制御ソフトウェアを書く言語はCだ。だが組み込みのCは、PCのCとは異なる。volatile・ポインタ・ビット操作・割込み — ハードウェアと直接語り合う言語の流儀を習得する。"
+      meta="MISRA-C:2012 · Embedded C · Volatile · ISR · Register Access"
+      accent="green"
+    />
+
+    <!-- Quick rules visual -->
+    <section class="mb-24">
+      <div class="flex items-center gap-4 mb-12">
+        <div class="h-px flex-1 bg-gradient-to-r from-transparent to-green-800/50"></div>
+        <span class="font-mono text-xs text-green-600 tracking-widest px-4">// MISRA-C QUICK RULES</span>
+        <div class="h-px flex-1 bg-gradient-to-l from-transparent to-green-800/50"></div>
+      </div>
+      <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        {[
+          { rule: 'malloc / free 禁止', reason: 'ヒープ枯渇と断片化を排除。静的確保のみ。', badge: '必須', color: 'border-red-700/50 bg-red-950/20 text-red-400' },
+          { rule: 'goto 禁止', reason: '制御フローの可読性と解析可能性を保証する。', badge: '必須', color: 'border-red-700/50 bg-red-950/20 text-red-400' },
+          { rule: '再帰禁止', reason: 'スタック消費量を静的に計算できなくなる。', badge: '必須', color: 'border-red-700/50 bg-red-950/20 text-red-400' },
+          { rule: 'volatile 適切な使用', reason: 'I/Oレジスタ・ISR共有変数に必須の修飾子。', badge: '必須', color: 'border-amber-700/50 bg-amber-950/20 text-amber-400' },
+          { rule: '暗黙型変換の禁止', reason: '意図しない型昇格で値が化けるのを防ぐ。', badge: '必須', color: 'border-amber-700/50 bg-amber-950/20 text-amber-400' },
+          { rule: 'union 使用制限', reason: '型punningによる未定義動作を回避する。', badge: '推奨', color: 'border-green-700/50 bg-green-950/20 text-green-400' },
+        ].map(r => (
+          <div class={`border rounded-lg p-4 ${r.color}`}>
+            <div class="flex items-start justify-between gap-2 mb-2">
+              <div class="font-mono text-sm font-bold">{r.rule}</div>
+              <span class="font-mono text-[9px] border border-current rounded px-1.5 shrink-0 opacity-70">{r.badge}</span>
+            </div>
+            <div class="text-gray-500 text-xs leading-relaxed">{r.reason}</div>
+          </div>
+        ))}
+      </div>
+    </section>
+
+    <!-- Articles -->
+    <section class="mb-24">
+      <div class="flex items-center gap-4 mb-12">
+        <div class="h-px flex-1 bg-gradient-to-r from-transparent to-green-800/50"></div>
+        <span class="font-mono text-xs text-green-600 tracking-widest px-4">// CHAPTER ARTICLES</span>
+        <div class="h-px flex-1 bg-gradient-to-l from-transparent to-green-800/50"></div>
+      </div>
+      <h2 class="text-2xl md:text-3xl font-serif font-semibold text-white text-center mb-12">この章の記事</h2>
+      <div class="grid md:grid-cols-3 gap-6">
+        {articles.map(a => (
+          <a href={`/topics/embedded-c/${a.slug}`} class="group relative border border-green-900/50 rounded-xl bg-[#0a0a1f]/80 overflow-hidden hover:-translate-y-2 hover:border-green-600/70 transition-all duration-300 hover:shadow-[0_0_30px_rgba(74,222,128,0.1)]">
+            <div class="h-1 bg-gradient-to-r from-green-500/40 to-teal-500/40"></div>
+            <div class="p-6">
+              <div class="flex items-center justify-between mb-4">
+                <span class={`text-[10px] font-mono px-2 py-1 rounded border ${a.levelColor}`}>{a.level}</span>
+                <span class="text-gray-600 text-[11px] font-mono">{a.time}</span>
+              </div>
+              <div class="font-mono text-[10px] text-gray-700 mb-2">C · #{a.no}</div>
+              <h3 class="text-white font-serif text-xl font-semibold mb-1 leading-snug group-hover:text-green-100 transition-colors">{a.title}</h3>
+              <div class="text-green-400 text-xs font-mono mb-3">{a.sub}</div>
+              <p class="text-gray-500 text-sm leading-relaxed line-clamp-3">{a.desc}</p>
+              <div class="mt-5 pt-4 border-t border-gray-800/50 flex items-center justify-between">
+                <span class="text-gray-600 text-xs font-mono">C.{a.no}</span>
+                <span class="text-green-400 text-xs font-mono group-hover:translate-x-1 transition-transform">読む →</span>
+              </div>
+            </div>
+          </a>
+        ))}
+      </div>
+    </section>
+
+    <section class="mb-20 border-t border-green-900/30 pt-10">
+      <div class="flex flex-col md:flex-row items-center justify-between gap-4 text-sm">
+        <a href="/" class="font-mono text-green-600 hover:text-green-400 transition-colors">← HOME</a>
+        <div class="font-mono text-xs text-gray-700 tracking-widest">CHAPTER 07 / EMBEDDED C</div>
+        <a href={`/topics/embedded-c/${articles[0].slug}`} class="font-mono text-green-600 hover:text-green-400 transition-colors">最初の記事 →</a>
+      </div>
+    </section>
+  </div>
+</Page>

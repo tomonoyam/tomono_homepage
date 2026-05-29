@@ -1,0 +1,223 @@
+---
+import Page from '../../../layouts/Page.astro';
+import Breadcrumb from '../../../components/Breadcrumb.astro';
+import PageHeader from '../../../components/PageHeader.astro';
+import Prose from '../../../components/Prose.astro';
+import Spell from '../../../components/Spell.astro';
+import CodeBlock from '../../../components/CodeBlock.astro';
+
+const toc = [
+  { id: 'arxml', label: 'ARXMLとは何か' },
+  { id: 'structure', label: 'ARXMLの構造' },
+  { id: 'tools', label: '主要ツール一覧' },
+  { id: 'workflow', label: '開発ワークフロー' },
+  { id: 'pain', label: '現場の苦労' },
+  { id: 'summary', label: 'まとめ' },
+];
+---
+
+<Page title="ARXMLとツールチェーン | AUTOSAR.MAGIC" description="AUTOSARの設計言語ARXML・Vector DaVinci・EB tresos等のツールチェーンと開発ワークフローを解説。">
+  <div class="max-w-5xl mx-auto px-6">
+    <Breadcrumb items={[
+      { label: 'HOME', href: '/' },
+      { label: 'TOPICS', href: '/#topics' },
+      { label: 'AUTOSAR入門', href: '/topics/autosar' },
+      { label: 'ARXML & TOOLS' },
+    ]} />
+    <PageHeader
+      chapter="AUTOSAR · #03 :: TOOLCHAIN"
+      title="ARXMLとツールチェーン"
+      subtitle="魔導書の言語 — 設計から生成まで。ARXMLという設計言語とツールチェーンの全体像を把握すれば、AUTOSARの開発フローが一気に見通せる。"
+      meta="読了時間: 約14分 · レベル: 中級 · 最終更新: 2026-05-29"
+      accent="cyan"
+    />
+    <div class="grid lg:grid-cols-[1fr_220px] gap-12">
+      <article>
+        <Prose>
+          <h2 id="arxml">ARXMLとは何か</h2>
+          <p>
+            <strong>ARXML (AUTOSAR XML)</strong> はAUTOSARが定めるXMLベースの設計記述言語だ。ソフトウェアコンポーネントの定義・ポート・インターフェース・接続・BSW設定・OS設定 — AUTOSARプロジェクトの<em>すべての設計情報</em>がARXMLに格納される。
+          </p>
+          <p>
+            ARXMLはソースコードではなく<strong>「設計モデル」</strong>だ。ツールがこれを読み込んで、RTEコード・BSW設定ファイル・リンカスクリプト等を生成する。
+          </p>
+
+          <h2 id="structure">ARXMLの構造</h2>
+          <p>ARXMLはパッケージ階層を持つ。プロジェクト全体が一つの名前空間ツリーを形成する。</p>
+
+          <CodeBlock lang="xml" title="ARXML基本構造">
+{`<?xml version="1.0" encoding="UTF-8"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+
+  <AR-PACKAGES>
+    <!-- パッケージ = 名前空間の区切り -->
+    <AR-PACKAGE>
+      <SHORT-NAME>MyProject</SHORT-NAME>
+      <AR-PACKAGES>
+
+        <!-- 型定義パッケージ -->
+        <AR-PACKAGE>
+          <SHORT-NAME>DataTypes</SHORT-NAME>
+          <ELEMENTS>
+            <IMPLEMENTATION-DATA-TYPE>
+              <SHORT-NAME>uint16</SHORT-NAME>
+              <!-- ... -->
+            </IMPLEMENTATION-DATA-TYPE>
+          </ELEMENTS>
+        </AR-PACKAGE>
+
+        <!-- インターフェース定義パッケージ -->
+        <AR-PACKAGE>
+          <SHORT-NAME>Interfaces</SHORT-NAME>
+          <ELEMENTS>
+            <SENDER-RECEIVER-INTERFACE>
+              <SHORT-NAME>VehicleSpeedInterface</SHORT-NAME>
+              <!-- ... -->
+            </SENDER-RECEIVER-INTERFACE>
+          </ELEMENTS>
+        </AR-PACKAGE>
+
+        <!-- SWC定義パッケージ -->
+        <AR-PACKAGE>
+          <SHORT-NAME>SWComponents</SHORT-NAME>
+          <ELEMENTS>
+            <APPLICATION-SW-COMPONENT-TYPE>
+              <SHORT-NAME>VehicleSpeedSWC</SHORT-NAME>
+              <!-- ポート・インターナルビヘイビア等 -->
+            </APPLICATION-SW-COMPONENT-TYPE>
+          </ELEMENTS>
+        </AR-PACKAGE>
+
+      </AR-PACKAGES>
+    </AR-PACKAGE>
+  </AR-PACKAGES>
+</AUTOSAR>`}
+          </CodeBlock>
+
+          <Spell type="warning" label="ARXMLの現実">
+            大規模プロジェクトのARXMLは数十万行に達することがある。テキストエディタで読もうとすると絶望する。<em>設計ツールで開くのが大原則</em>。ただし「なぜこのARXMLになっているか」を理解するために、生のXMLを読む能力は必要だ。
+          </Spell>
+
+          <h2 id="tools">主要ツール一覧</h2>
+          <p>AUTOSAR開発で使われる主要なツールを整理する。</p>
+        </Prose>
+
+        <div class="my-8 space-y-3">
+          {[
+            {
+              vendor: 'Vector',
+              tools: [
+                { name: 'DaVinci Developer', use: 'SWC設計・ARXML編集・SWC間接続設計' },
+                { name: 'DaVinci Configurator', use: 'BSW設定・RTE生成・OSタスク設計' },
+                { name: 'CANdb++ / DBC', use: 'CAN信号定義 (DBCファイル編集)' },
+                { name: 'CANoe', use: 'CAN通信シミュレーション・診断通信テスト' },
+              ],
+              color: 'border-cyan-700/50 bg-cyan-950/20',
+              label: 'Vector',
+            },
+            {
+              vendor: 'EB (Elektrobit)',
+              tools: [
+                { name: 'EB tresos Studio', use: 'BSW設定・RTE生成・MCAL設定' },
+                { name: 'EB guide', use: 'HMI設計 (Adaptive Platform向け)' },
+              ],
+              color: 'border-blue-700/50 bg-blue-950/20',
+              label: 'EB',
+            },
+            {
+              vendor: 'ETAS (Bosch)',
+              tools: [
+                { name: 'ISOLAR-A', use: 'ARXML設計・SWC設計' },
+                { name: 'ISOLAR-EVE', use: 'SIL (Software-in-the-Loop) 仮想ECUテスト' },
+                { name: 'INCA', use: 'ECUキャリブレーション・測定' },
+              ],
+              color: 'border-purple-700/50 bg-purple-950/20',
+              label: 'ETAS',
+            },
+            {
+              vendor: '半導体ベンダ',
+              tools: [
+                { name: 'Renesas CS+ / e²studio', use: 'RH850/RL78向けIDEとデバッガ' },
+                { name: 'Infineon AURIX Development Studio', use: 'TC3xx向けIDE' },
+                { name: 'NXP S32 Design Studio', use: 'S32K向けIDE' },
+              ],
+              color: 'border-green-700/50 bg-green-950/20',
+              label: 'MCU Vendor',
+            },
+          ].map(vendor => (
+            <div class={`border rounded-xl ${vendor.color} overflow-hidden`}>
+              <div class="px-5 py-2.5 border-b border-current/20 font-mono text-xs font-bold">{vendor.vendor}</div>
+              <div class="divide-y divide-current/10">
+                {vendor.tools.map(t => (
+                  <div class="px-5 py-3 flex flex-col sm:flex-row gap-2">
+                    <span class="font-mono text-xs font-bold min-w-[200px]">{t.name}</span>
+                    <span class="text-gray-400 text-xs">{t.use}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <Prose>
+          <h2 id="workflow">開発ワークフロー</h2>
+          <p>AUTOSARプロジェクトの典型的な開発フローは次のとおりだ。</p>
+          <ol>
+            <li><strong>システム設計</strong>: OEMがSWC間インターフェース・信号定義をARXMLで定義。DBC/LDFも確定。</li>
+            <li><strong>SWC設計</strong>: Tier1がARXMLに基づき、SWCのポート・Runnable・RTE Eventを宣言。</li>
+            <li><strong>BSW設定</strong>: BSW設定ツール (DaVinci Configurator / EB tresos) でCom/Dcm/Os等を設定。</li>
+            <li><strong>RTE生成</strong>: ツールがARXMLを読み込み、<code>Rte_*.h / Rte_*.c</code> を自動生成。</li>
+            <li><strong>SWC実装</strong>: Cコードを手書き。インクルードするのは生成されたRTEヘッダのみ。</li>
+            <li><strong>統合ビルド</strong>: SWC + RTE生成コード + BSW + MCAL をまとめてコンパイル。</li>
+            <li><strong>SIL/MIL/HIL</strong>: 仮想ECU(SIL)→モデル(MIL)→実ハード(HIL)の順で段階的テスト。</li>
+            <li><strong>ECUフラッシュ</strong>: UDS (0x34/36/37) またはJTAGで実機に書き込み。</li>
+          </ol>
+
+          <h2 id="pain">現場の苦労</h2>
+          <p>理想と現実のギャップをリストアップしておく。初めてAUTOSARに触れるとき、これを知っているかどうかで精神的ダメージが変わる。</p>
+          <ul>
+            <li><strong>ツールのバージョン依存</strong>: DaVinci 4.xで作ったARXMLがDaVinci 5.xで開けないことがある。ARXML schemaのバージョン管理は現場の悩みの種。</li>
+            <li><strong>RTE生成の時間</strong>: 大規模プロジェクトではRTE生成に数分〜十数分かかる。小さな変更でも全体を再生成するため、開発イテレーションが遅くなる。</li>
+            <li><strong>ツールライセンスコスト</strong>: Vector・EB等のツールは高価。社内ライセンス数の争奪戦が起きる現場も。</li>
+            <li><strong>ARXML統合</strong>: OEMからもらったARXML + Tier1のARXML + 半導体ベンダのARXMLを一つのプロジェクトにマージするのは、毎回一苦労。</li>
+          </ul>
+
+          <Spell type="rune" label="それでも学ぶ価値がある理由">
+            苦労はあるが、AUTOSAR + ツールチェーンを使いこなせるエンジニアは希少で高価値だ。自動化・標準化の恩恵を正しく受ければ、単純なミスの撲滅と開発速度の向上は本物だ。苦労を「仕組みの理解」に変えるのがこのサイトの目的だ。
+          </Spell>
+
+          <h2 id="summary">まとめ</h2>
+          <ul>
+            <li>ARXMLはAUTOSARの<strong>設計言語</strong>。すべての設計情報を格納するXMLモデル</li>
+            <li>主要ツール: <strong>Vector DaVinci</strong> / <strong>EB tresos</strong> / <strong>ETAS ISOLAR</strong> + 半導体ベンダIDE</li>
+            <li>開発フローは<strong>ARXML設計 → BSW設定 → RTE生成 → SWC実装 → 統合</strong></li>
+            <li>現場の苦労はバージョン依存・生成時間・ライセンス・ARXML統合</li>
+          </ul>
+          <p>AUTOSAR入門章はここまで。次はより具体的な実装の世界へ — <strong>組み込みC章</strong>で言語レベルの深掘りを始めよう。</p>
+        </Prose>
+
+        <nav class="mt-20 pt-10 border-t border-cyan-900/30 flex flex-col sm:flex-row items-stretch gap-3">
+          <a href="/topics/autosar/cp-vs-ap" class="flex-1 group border border-cyan-900/40 hover:border-cyan-700 rounded-lg p-4 transition-colors">
+            <div class="font-mono text-[10px] text-cyan-700 tracking-widest mb-1">← PREV · AUTOSAR.02</div>
+            <div class="text-cyan-300 group-hover:text-cyan-100 transition-colors">Classic vs Adaptive</div>
+          </a>
+          <a href="/topics/autosar" class="flex-1 group border border-cyan-900/40 hover:border-cyan-700 rounded-lg p-4 transition-colors text-right">
+            <div class="font-mono text-[10px] text-cyan-700 tracking-widest mb-1">章扉 →</div>
+            <div class="text-cyan-300 group-hover:text-cyan-100 transition-colors">AUTOSAR入門章へ戻る</div>
+          </a>
+        </nav>
+      </article>
+      <aside class="hidden lg:block">
+        <div class="sticky top-28 border-l border-cyan-900/40 pl-5">
+          <div class="font-mono text-[10px] text-cyan-700 tracking-widest mb-4">// TABLE OF CONTENTS</div>
+          <ul class="space-y-3 text-sm">
+            {toc.map(t => (
+              <li><a href={`#${t.id}`} class="text-gray-500 hover:text-cyan-400 transition-colors block leading-snug">{t.label}</a></li>
+            ))}
+          </ul>
+        </div>
+      </aside>
+    </div>
+  </div>
+</Page>

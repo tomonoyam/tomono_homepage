@@ -1,0 +1,217 @@
+---
+import Page from '../../../layouts/Page.astro';
+import Breadcrumb from '../../../components/Breadcrumb.astro';
+import PageHeader from '../../../components/PageHeader.astro';
+import Prose from '../../../components/Prose.astro';
+import Spell from '../../../components/Spell.astro';
+import CodeBlock from '../../../components/CodeBlock.astro';
+
+const toc = [
+  { id: 'what', label: 'MISRA-Cとは何か' },
+  { id: 'rule-categories', label: 'ルールの分類' },
+  { id: 'key-rules', label: '重要ルール詳解' },
+  { id: 'tooling', label: '静的解析ツール' },
+  { id: 'deviation', label: '逸脱(Deviation)の使い方' },
+  { id: 'summary', label: 'まとめ' },
+];
+---
+
+<Page title="MISRA-C — 安全の掟 | AUTOSAR.MAGIC" description="MISRA-C:2012の必須・推奨ルール。malloc禁止・goto禁止・volatile使用法を現場目線で解説。静的解析ツールとDeviationの使い方も。">
+  <div class="max-w-5xl mx-auto px-6">
+    <Breadcrumb items={[
+      { label: 'HOME', href: '/' },
+      { label: 'TOPICS', href: '/#topics' },
+      { label: '組み込みC', href: '/topics/embedded-c' },
+      { label: 'MISRA-C' },
+    ]} />
+    <PageHeader
+      chapter="C · #01 :: MISRA-C"
+      title="MISRA-C — 安全の掟"
+      subtitle="術者の言語規律 — なぜ制約が強さになるか。制限は表現の妨げではなく、バグを生まないための設計パターンだ。"
+      meta="読了時間: 約10分 · レベル: 入門 · 最終更新: 2026-05-29"
+      accent="green"
+    />
+    <div class="grid lg:grid-cols-[1fr_220px] gap-12">
+      <article>
+        <Prose>
+          <p>
+            「mallocを使ってはいけない」「gotoは禁止」「再帰は書けない」— 初めてMISRA-Cのルール集を見たエンジニアは、こう感じることが多い。<em>「これでまともなコードが書けるのか？」</em>
+          </p>
+          <p>
+            だが本質を理解すれば逆のことに気づく。これらの制約は、<strong>車載制御ソフトウェアで許されない問題を、コードを書く前に構造的に排除する設計パターン</strong>だ。
+          </p>
+
+          <Spell type="spell" label="この記事のゴール">
+            MISRA-Cのルールを「なぜそのルールが存在するか」で理解する。暗記するのではなく、<em>制約の背後にある危険を想像できる</em>ようになる。
+          </Spell>
+
+          <h2 id="what">MISRA-Cとは何か</h2>
+          <p>
+            <strong>MISRA (Motor Industry Software Reliability Association)</strong> は英国の自動車産業団体で、1998年に「MISRA-C:1998」として最初のC言語コーディング規約を発行した。現在の版は <strong>MISRA-C:2012</strong> (Amendment 1/2を含む) だ。
+          </p>
+          <p>
+            MISRA-Cは<strong>ISOのC言語標準(C90/C99)</strong>の上に「さらに安全な書き方」を規定するもので、ISO 26262 (機能安全規格) でも参照される。ASILのレベルによって、準拠が必須か推奨かが決まる。
+          </p>
+
+          <h2 id="rule-categories">ルールの分類</h2>
+          <table>
+            <thead><tr><th>分類</th><th>説明</th><th>違反時</th></tr></thead>
+            <tbody>
+              <tr><td><strong>Mandatory (必須)</strong></td><td>違反が直接的な安全上の問題を引き起こす</td><td>Deviation不可</td></tr>
+              <tr><td><strong>Required (必要)</strong></td><td>技術的・安全的根拠がある。強い推奨</td><td>Deviation可 (正当化必須)</td></tr>
+              <tr><td><strong>Advisory (勧告)</strong></td><td>ベストプラクティス。状況により適用判断</td><td>Deviation可</td></tr>
+            </tbody>
+          </table>
+          <p>MISRA-C:2012には<strong>16のMandatory + 143のRequired + 16のAdvisory</strong>ルールがある。</p>
+
+          <h2 id="key-rules">重要ルール詳解</h2>
+
+          <h3>Rule 21.3 — malloc/free 禁止 (Required)</h3>
+          <p>動的メモリ確保は禁止。理由は三つ。</p>
+          <ul>
+            <li><strong>ヒープ枯渇</strong>: 実行時にメモリが足りなくなる可能性があり、静的に証明できない</li>
+            <li><strong>断片化</strong>: 長期稼働でヒープが断片化し、確保できなくなる</li>
+            <li><strong>WCETの不確定性</strong>: mallocの実行時間は一定でない。タイミング解析が壊れる</li>
+          </ul>
+
+          <CodeBlock lang="c" title="NG vs OK">
+{`/* ❌ NG: Rule 21.3違反 */
+uint8_t *buf = (uint8_t *)malloc(256);
+/* ... */
+free(buf);
+
+/* ✅ OK: 静的確保 */
+static uint8_t buf[256];
+
+/* ✅ OK: スタック確保 (サイズ上限に注意) */
+void Func(void) {
+    uint8_t localBuf[64];
+}`}
+          </CodeBlock>
+
+          <h3>Rule 15.1 — goto 禁止 (Required)</h3>
+          <p>
+            gotoは制御フローを任意に飛ばせるため、<strong>静的解析ツールが到達可能性・変数初期化を証明できなくなる</strong>。Cのコードをグラフとして解析するとき、gotoはそのグラフを複雑にする。
+          </p>
+
+          <h3>Rule 17.2 — 再帰禁止 (Required)</h3>
+          <p>再帰はスタック消費量が実行時データに依存するため、<strong>スタックサイズを静的に計算できない</strong>。スタックオーバーフローは車載ではほぼ致命的だ(暴走・データ破壊)。</p>
+
+          <CodeBlock lang="c" title="再帰 NG → 反復 OK">
+{`/* ❌ NG: 再帰 (Rule 17.2違反) */
+uint32_t Factorial_recursive(uint32_t n)
+{
+    return (n == 0u) ? 1u : n * Factorial_recursive(n - 1u);
+}
+
+/* ✅ OK: 反復で実装 */
+uint32_t Factorial_iterative(uint32_t n)
+{
+    uint32_t result = 1u;
+    uint32_t i;
+    for (i = 2u; i <= n; i++) {
+        result *= i;
+    }
+    return result;
+}`}
+          </CodeBlock>
+
+          <h3>Rule 8.1 — 暗黙的型変換の禁止 (Required)</h3>
+          <p>
+            Cの整数型変換は<strong>意図しない符号付き/符号なし変換・型昇格</strong>が多発する。MISRA-Cは明示的キャストを要求する。
+          </p>
+
+          <CodeBlock lang="c" title="型変換のワナ">
+{`/* ❌ NG: 暗黙変換 (uint8 → int → int → uint16への混在演算) */
+uint8_t  a = 200u;
+uint8_t  b = 100u;
+uint16_t c = a + b;  /* 実は int 演算になる。結果は300 (桁溢れなし) だが意図が不明瞭 */
+
+/* ✅ OK: 明示的に型を揃える */
+uint16_t c = (uint16_t)a + (uint16_t)b;
+
+/* ❌ 危険パターン: 符号付きと符号なしの比較 */
+int16_t  x = -1;
+uint16_t y = 1u;
+if (x < y) { /* x が uint16_t に変換されて 65535 になる! 条件が逆転 */`}
+          </CodeBlock>
+
+          <h3>Rule 14.4 — bool式のbool使用</h3>
+          <p>制御式 (if/while/for) には <code>_Bool</code> 型か、明示的な比較式のみ許可。数値を直接条件にするのは禁止。</p>
+
+          <CodeBlock lang="c" title="制御式">
+{`uint8_t flag = 1u;
+
+/* ❌ NG */
+if (flag) { ... }
+
+/* ✅ OK */
+if (flag != 0u) { ... }
+if (flag == TRUE) { ... }  /* AUTOSAR boolean_t を使う場合 */`}
+          </CodeBlock>
+
+          <h2 id="tooling">静的解析ツール</h2>
+          <p>MISRA-C準拠を手作業でチェックするのは現実的でない。静的解析ツールに任せる。</p>
+          <table>
+            <thead><tr><th>ツール</th><th>特徴</th></tr></thead>
+            <tbody>
+              <tr><td><strong>PC-lint Plus (Gimpel)</strong></td><td>老舗。C/C++対応。MISRA-C:2012フル対応。コマンドライン向け。</td></tr>
+              <tr><td><strong>LDRA TBvision</strong></td><td>MISRA準拠 + カバレッジ測定。DO-178C/ISO 26262対応。</td></tr>
+              <tr><td><strong>Polyspace Bug Finder (MathWorks)</strong></td><td>ランタイムエラー検出 + MISRA。MATLAB/Simulinkと統合。</td></tr>
+              <tr><td><strong>MISRA Compliance Checker (各社)</strong></td><td>コンパイラ付属(IAR, Keil等)の簡易チェッカ。</td></tr>
+            </tbody>
+          </table>
+
+          <h2 id="deviation">逸脱(Deviation)の使い方</h2>
+          <p>
+            RequiredルールはDeviation (逸脱記録) をもって特例を認められる。だがDeviationは<strong>正当化理由・影響分析・代替手段の検討</strong>をドキュメントに記録しなければならない。
+          </p>
+
+          <CodeBlock lang="c" title="Deviationの記録例 (コードコメント)">
+{`/*
+ * MISRA-C:2012 Rule 11.3 Deviation
+ * Reason: ハードウェアレジスタへのアクセスにはアドレスの型変換が必要。
+ *         代替手段なし。レジスタマップは固定アドレスで変更不可。
+ * Risk: 型安全性が低下するが、アドレスは検証済み定数のみ使用する。
+ * Review: 2025-03-01 reviewed by [name]
+ */
+#define REG_CAN_CTL  (*((volatile uint32_t *)0x40004000UL))  /* MISRA deviation */`}
+          </CodeBlock>
+
+          <Spell type="rune" label="Deviationの哲学">
+            Deviationは「ルールを無視する許可」ではなく「なぜここだけ違うのかを説明する義務」だ。DeviationがないMISRA違反はバグ候補、Deviationがある違反は設計上の意図的選択。この区別がコードレビューの質を決める。
+          </Spell>
+
+          <h2 id="summary">まとめ</h2>
+          <ul>
+            <li>MISRA-Cは「安全なCの書き方」の規約。ISO 26262の文脈で必須または推奨</li>
+            <li>Mandatory/Required/Advisoryの三段階。違反時の対応が異なる</li>
+            <li>主要ルール: <strong>malloc禁止・goto禁止・再帰禁止・明示的型変換</strong></li>
+            <li>静的解析ツールがなければ現実的な準拠確認はできない</li>
+            <li>Deviationは逸脱の「正当化記録」。乱用は禁忌</li>
+          </ul>
+        </Prose>
+        <nav class="mt-20 pt-10 border-t border-green-900/30 flex flex-col sm:flex-row items-stretch gap-3">
+          <a href="/topics/embedded-c" class="flex-1 group border border-green-900/40 hover:border-green-700 rounded-lg p-4 transition-colors">
+            <div class="font-mono text-[10px] text-green-700 tracking-widest mb-1">← 章扉</div>
+            <div class="text-green-300 group-hover:text-green-100 transition-colors">組み込みC章へ戻る</div>
+          </a>
+          <a href="/topics/embedded-c/pointers-and-memory" class="flex-1 group border border-green-900/40 hover:border-green-700 rounded-lg p-4 transition-colors text-right">
+            <div class="font-mono text-[10px] text-green-700 tracking-widest mb-1">NEXT · C.02 →</div>
+            <div class="text-green-300 group-hover:text-green-100 transition-colors">ポインタとメモリ管理</div>
+          </a>
+        </nav>
+      </article>
+      <aside class="hidden lg:block">
+        <div class="sticky top-28 border-l border-green-900/40 pl-5">
+          <div class="font-mono text-[10px] text-green-700 tracking-widest mb-4">// TABLE OF CONTENTS</div>
+          <ul class="space-y-3 text-sm">
+            {toc.map(t => (
+              <li><a href={`#${t.id}`} class="text-gray-500 hover:text-green-400 transition-colors block leading-snug">{t.label}</a></li>
+            ))}
+          </ul>
+        </div>
+      </aside>
+    </div>
+  </div>
+</Page>

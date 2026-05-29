@@ -1,0 +1,129 @@
+---
+import Page from '../../../layouts/Page.astro';
+import Breadcrumb from '../../../components/Breadcrumb.astro';
+import PageHeader from '../../../components/PageHeader.astro';
+
+const articles = [
+  {
+    slug: 'what-is-autosar',
+    no: '01',
+    title: 'AUTOSARとは何か',
+    sub: '魔法体系の全体像 — 誕生の必然',
+    desc: 'なぜ自動車業界はAUTOSARを必要としたのか。2003年の設立から現在まで、標準化がもたらした恩恵と残された課題を俯瞰する。',
+    level: '入門',
+    levelColor: 'text-green-400 border-green-800/50',
+    time: '8分',
+  },
+  {
+    slug: 'cp-vs-ap',
+    no: '02',
+    title: 'Classic vs Adaptive Platform',
+    sub: '二つの魔法体系 — 用途による分岐',
+    desc: 'AUTOSAR Classic Platformと新世代のAdaptive Platformは何が違うのか。用途・OS・通信・開発スタイルの差異を対比で整理する。',
+    level: '中級',
+    levelColor: 'text-blue-400 border-blue-800/50',
+    time: '12分',
+  },
+  {
+    slug: 'arxml-and-tools',
+    no: '03',
+    title: 'ARXMLとツールチェーン',
+    sub: '魔導書の言語 — 設計から生成まで',
+    desc: 'AUTOSARの設計言語ARXML。Vector DaVinci・EB tresos・ETAS。ツールチェーンの全体像と、OEM/Tier1/半導体ベンダの役割分担を解く。',
+    level: '中級',
+    levelColor: 'text-blue-400 border-blue-800/50',
+    time: '14分',
+  },
+];
+
+const timeline = [
+  { year: '2003', event: 'AUTOSAR設立 (BMW・Bosch・Continental・DaimlerChrysler等9社)' },
+  { year: '2005', event: 'AUTOSAR 1.0 リリース' },
+  { year: '2008', event: 'AUTOSAR 3.x — Classic Platform 本格普及' },
+  { year: '2013', event: 'AUTOSAR 4.x — CAN FD・Crypto・SOME/IP対応' },
+  { year: '2017', event: 'AUTOSAR Adaptive Platform 1.0 (R17-03) — ADAS/自動運転向け' },
+  { year: '2020', event: 'AUTOSAR R20-11 — OTA・車載Ethernet強化' },
+  { year: '2023', event: 'AUTOSAR R23-11 — 継続リリース' },
+];
+---
+
+<Page title="AUTOSAR入門 — 魔法体系の全体像 | AUTOSAR.MAGIC" description="AUTOSARの全体像。誕生の背景・Classic/Adaptive Platform・ARXMLとツールチェーンをまとめた入門章扉。">
+  <div class="max-w-6xl mx-auto px-6">
+    <Breadcrumb items={[
+      { label: 'HOME', href: '/' },
+      { label: 'TOPICS', href: '/#topics' },
+      { label: 'AUTOSAR入門' },
+    ]} />
+
+    <PageHeader
+      chapter="CHAPTER 01 :: AUTOSAR OVERVIEW"
+      title="AUTOSAR入門 — 魔法体系の全体像"
+      subtitle="Automotive Open System Architecture。車載ソフトウェアの標準化という壮大な計画は、2003年に9社の合意から始まった。その全体像を俯瞰しよう。"
+      meta="AUTOSAR Classic Platform · Adaptive Platform · ARXML · Toolchain"
+      accent="cyan"
+    />
+
+    <!-- Timeline -->
+    <section class="mb-24">
+      <div class="flex items-center gap-4 mb-12">
+        <div class="h-px flex-1 bg-gradient-to-r from-transparent to-cyan-800/50"></div>
+        <span class="font-mono text-xs text-cyan-600 tracking-widest px-4">// HISTORY TIMELINE</span>
+        <div class="h-px flex-1 bg-gradient-to-l from-transparent to-cyan-800/50"></div>
+      </div>
+      <h2 class="text-2xl md:text-3xl font-serif font-semibold text-white text-center mb-12">AUTOSARの歴史</h2>
+      <div class="relative">
+        <div class="absolute left-20 top-0 bottom-0 w-px bg-gradient-to-b from-cyan-900/80 via-cyan-800/40 to-transparent"></div>
+        <div class="space-y-6">
+          {timeline.map(t => (
+            <div class="flex items-start gap-6">
+              <div class="font-mono text-sm text-cyan-400 w-16 shrink-0 pt-0.5 text-right">{t.year}</div>
+              <div class="relative flex items-center">
+                <div class="w-3 h-3 rounded-full border-2 border-cyan-500 bg-[#06060f] shrink-0 mr-4 mt-0.5"></div>
+              </div>
+              <div class="text-gray-400 text-sm leading-relaxed">{t.event}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+
+    <!-- Articles -->
+    <section class="mb-24">
+      <div class="flex items-center gap-4 mb-12">
+        <div class="h-px flex-1 bg-gradient-to-r from-transparent to-cyan-800/50"></div>
+        <span class="font-mono text-xs text-cyan-600 tracking-widest px-4">// CHAPTER ARTICLES</span>
+        <div class="h-px flex-1 bg-gradient-to-l from-transparent to-cyan-800/50"></div>
+      </div>
+      <h2 class="text-2xl md:text-3xl font-serif font-semibold text-white text-center mb-12">この章の記事</h2>
+      <div class="grid md:grid-cols-3 gap-6">
+        {articles.map(a => (
+          <a href={`/topics/autosar/${a.slug}`} class="group relative border border-cyan-900/50 rounded-xl bg-[#0a0a1f]/80 overflow-hidden hover:-translate-y-2 hover:border-cyan-600/70 transition-all duration-300 hover:shadow-[0_0_30px_rgba(0,212,255,0.15)]">
+            <div class="h-1 bg-gradient-to-r from-cyan-500/40 to-teal-500/40"></div>
+            <div class="p-6">
+              <div class="flex items-center justify-between mb-4">
+                <span class={`text-[10px] font-mono px-2 py-1 rounded border ${a.levelColor}`}>{a.level}</span>
+                <span class="text-gray-600 text-[11px] font-mono">{a.time}</span>
+              </div>
+              <div class="font-mono text-[10px] text-gray-700 mb-2">AUTOSAR · #{a.no}</div>
+              <h3 class="text-white font-serif text-xl font-semibold mb-1 leading-snug group-hover:text-cyan-100 transition-colors">{a.title}</h3>
+              <div class="text-cyan-500 text-xs font-mono mb-3">{a.sub}</div>
+              <p class="text-gray-500 text-sm leading-relaxed line-clamp-3">{a.desc}</p>
+              <div class="mt-5 pt-4 border-t border-gray-800/50 flex items-center justify-between">
+                <span class="text-gray-600 text-xs font-mono">AUTOSAR.{a.no}</span>
+                <span class="text-cyan-500 text-xs font-mono group-hover:translate-x-1 transition-transform">読む →</span>
+              </div>
+            </div>
+          </a>
+        ))}
+      </div>
+    </section>
+
+    <section class="mb-20 border-t border-cyan-900/30 pt-10">
+      <div class="flex flex-col md:flex-row items-center justify-between gap-4 text-sm">
+        <a href="/" class="font-mono text-cyan-600 hover:text-cyan-400 transition-colors">← HOME</a>
+        <div class="font-mono text-xs text-gray-700 tracking-widest">CHAPTER 01 / AUTOSAR OVERVIEW</div>
+        <a href={`/topics/autosar/${articles[0].slug}`} class="font-mono text-cyan-600 hover:text-cyan-400 transition-colors">最初の記事 →</a>
+      </div>
+    </section>
+  </div>
+</Page>

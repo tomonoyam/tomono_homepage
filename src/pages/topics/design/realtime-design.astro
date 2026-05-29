@@ -1,0 +1,222 @@
+---
+import Page from '../../../layouts/Page.astro';
+import Breadcrumb from '../../../components/Breadcrumb.astro';
+import PageHeader from '../../../components/PageHeader.astro';
+import Prose from '../../../components/Prose.astro';
+import Spell from '../../../components/Spell.astro';
+import CodeBlock from '../../../components/CodeBlock.astro';
+
+const toc = [
+  { id: 'what-rt', label: 'リアルタイムとは何か' },
+  { id: 'task-design', label: 'タスク設計の原則' },
+  { id: 'rms', label: 'レート単調スケジューリング' },
+  { id: 'cpu-load', label: 'CPU負荷率の計算' },
+  { id: 'jitter', label: 'ジッターと対策' },
+  { id: 'summary', label: 'まとめ' },
+];
+---
+
+<Page title="リアルタイム設計 | AUTOSAR.MAGIC" description="リアルタイムシステムの設計基礎。タスク分割・レート単調スケジューリング・CPU負荷率・ジッター対策を解説。">
+  <div class="max-w-5xl mx-auto px-6">
+    <Breadcrumb items={[
+      { label: 'HOME', href: '/' },
+      { label: 'TOPICS', href: '/#topics' },
+      { label: '車載ソフト設計', href: '/topics/design' },
+      { label: 'REALTIME DESIGN' },
+    ]} />
+    <PageHeader
+      chapter="DESIGN · #03 :: REAL-TIME"
+      title="リアルタイム設計"
+      subtitle="時間の呪縛 — デッドラインを守る術。「速い」と「リアルタイム」は違う。デッドラインを静的に保証するための設計手法を体系的に学ぶ。"
+      meta="読了時間: 約16分 · レベル: 中級 · 最終更新: 2026-05-29"
+      accent="amber"
+    />
+    <div class="grid lg:grid-cols-[1fr_220px] gap-12">
+      <article>
+        <Prose>
+          <p>
+            「このECUは速い」というのはリアルタイム性の保証ではない。<strong>リアルタイムとは「速いこと」ではなく「デッドラインを常に守ること」</strong>だ。
+          </p>
+          <p>
+            エンジン制御で1msのデッドラインを99%守っても、残り1%で守れなければ機能安全上の問題になりうる。<em>100%守ることを設計で証明しなければならない</em>。
+          </p>
+
+          <Spell type="spell" label="この記事のゴール">
+            「なぜこのタスクは1msで、あれは10msなのか」「CPU負荷率はどう計算するか」「ジッターが問題になる条件は何か」を設計の論理で答えられるようになる。
+          </Spell>
+
+          <h2 id="what-rt">リアルタイムとは何か</h2>
+          <p>リアルタイムシステムは要求の厳格さによって分類される。</p>
+          <table>
+            <thead><tr><th>種別</th><th>デッドライン違反の結果</th><th>例</th></tr></thead>
+            <tbody>
+              <tr><td><strong>ハードリアルタイム</strong></td><td>システム障害・安全上の問題</td><td>エアバッグ制御・ブレーキ制御</td></tr>
+              <tr><td><strong>ファームリアルタイム</strong></td><td>サービス品質の著しい劣化</td><td>エンジン点火タイミング・ABS</td></tr>
+              <tr><td><strong>ソフトリアルタイム</strong></td><td>許容可能な品質劣化</td><td>メータ表示・空調制御</td></tr>
+            </tbody>
+          </table>
+          <p>車載制御のほとんどはハードまたはファームリアルタイムだ。ソフトリアルタイムでさえ、ある種の安全機能とは無縁ではない。</p>
+
+          <h2 id="task-design">タスク設計の原則</h2>
+          <p>タスクの周期は「その処理が何Hz必要か」から決まる。</p>
+
+          <CodeBlock lang="text" title="典型的なタスク周期の割り当て">
+{`1ms タスク:
+  └── エンジン燃料噴射タイミング計算
+  └── ABS / ESCの高速制御ループ
+  └── 電流制御 (モータ制御)
+
+2ms タスク:
+  └── 高速センササンプリング
+
+5ms タスク:
+  └── CAN高速信号受信処理
+
+10ms タスク:
+  └── 車速・回転数の制御ループ
+  └── 診断処理
+  └── CAN周期送信
+
+20ms タスク:
+  └── ゲイン計算・フィルタ更新
+
+100ms タスク:
+  └── 温度・バッテリ監視
+  └── 低速診断処理
+
+1000ms タスク:
+  └── NvM書き込み
+  └── 通信モード管理`}
+          </CodeBlock>
+
+          <Spell type="rune" label="タスク周期の黄金律">
+            制御対象の<strong>サンプリング周波数はシャノン定理より最低でも帯域の2倍</strong>。ブレーキ制御が最大50Hzなら、制御ループは最低100Hz = 10ms以内で動かす。さらに余裕を持って1ms〜5msにすることが多い。
+          </Spell>
+
+          <h2 id="rms">レート単調スケジューリング (RMS)</h2>
+          <p>
+            <strong>Rate Monotonic Scheduling (RMS)</strong> は、<em>周期が短いタスクほど高い優先度を与える</em>スケジューリング方式だ。固定優先度スケジューリングにおいて最適であることが証明されている。
+          </p>
+
+          <CodeBlock lang="text" title="RMS優先度割り当て例">
+{`タスク      周期     WCET    優先度 (高→低)
+──────────────────────────────────────────
+Task_1ms    1ms      0.3ms   Priority 10 (最高)
+Task_2ms    2ms      0.5ms   Priority 9
+Task_5ms    5ms      1.0ms   Priority 8
+Task_10ms   10ms     3.0ms   Priority 7
+Task_100ms  100ms    15.0ms  Priority 6  (最低)
+
+→ 周期が短い順 = 優先度が高い順
+
+これが Rate Monotonic = 周期に単調に比例する優先度`}
+          </CodeBlock>
+
+          <p>RMSが成立するためには後述のCPU負荷率条件を満たす必要がある。</p>
+
+          <h2 id="cpu-load">CPU負荷率の計算</h2>
+          <p>
+            タスクがCPUを使う割合が<strong>CPU負荷率 (CPU Utilization)</strong> だ。これが100%を超えるとタスクがデッドラインを守れなくなる。
+          </p>
+
+          <CodeBlock lang="text" title="CPU負荷率の計算">
+{`負荷率 = Σ(WCET_i / Period_i)
+
+例:
+Task_1ms:   0.3ms / 1ms   = 30.0%
+Task_2ms:   0.5ms / 2ms   = 25.0%
+Task_5ms:   1.0ms / 5ms   = 20.0%
+Task_10ms:  3.0ms / 10ms  = 30.0%
+Task_100ms: 15.0ms / 100ms = 15.0%
+                           ──────
+                           合計: 120.0% ← ❌ Over! デッドライン違反
+
+RMSの理論的上限 (n→∞):
+  U_max = n(2^(1/n) - 1) ≈ 69.3%
+
+実務では 70〜80% を目安に設計する (割込みや OSオーバヘッドの余裕含む)`}
+          </CodeBlock>
+
+          <Spell type="warning" label="WCET測定の注意">
+            WCETは「最悪ケース」だ。平均値や通常ケースで負荷率を計算しても意味がない。キャッシュミス・バス競合・最長分岐パスを考慮した<strong>真の最悪値</strong>で計算する。余裕係数1.2〜1.5を掛けるのが現場の慣習だ。
+          </Spell>
+
+          <h2 id="jitter">ジッターと対策</h2>
+          <p>
+            タスクの起動タイミングが毎回少しずつずれる現象を<strong>ジッター (Jitter)</strong> という。理想では10msタスクは0ms・10ms・20msで起動するが、実際には0ms・10.02ms・20.01ms・30.08ms…とばらつく。
+          </p>
+          <p>ジッターの主な原因:</p>
+          <ul>
+            <li><strong>高優先度タスクのプリエンプション</strong>: 1msタスクが10msタスクを遅延させる</li>
+            <li><strong>ISRの実行時間変動</strong>: CAN受信量の多い瞬間に遅延</li>
+            <li><strong>クリティカルセクション</strong>: 割込み禁止区間が長いとタイミングがずれる</li>
+          </ul>
+
+          <CodeBlock lang="c" title="ジッター計測の実装">
+{`/* タスク起動時刻を記録してジッターを測定 */
+static uint32_t g_lastWakeTime = 0u;
+static uint32_t g_maxJitter    = 0u;
+
+TASK(OsTask_10ms)
+{
+    uint32_t now    = GetSystemTime_us();   /* タイマ値取得 */
+    uint32_t jitter;
+
+    if (g_lastWakeTime != 0u) {
+        uint32_t elapsed = now - g_lastWakeTime;
+        /* 理想は 10000us。差がジッター */
+        jitter = (elapsed > 10000u) ? (elapsed - 10000u) : (10000u - elapsed);
+        if (jitter > g_maxJitter) {
+            g_maxJitter = jitter;   /* 最大ジッターを記録 */
+        }
+    }
+    g_lastWakeTime = now;
+
+    /* ... タスク本体の処理 ... */
+    TerminateTask();
+}`}
+          </CodeBlock>
+
+          <p>ジッターを減らす設計対策:</p>
+          <ul>
+            <li><strong>AUTOSAR Schedule Table</strong>の使用 — アラームより同期精度が高い</li>
+            <li><strong>割込み禁止区間の短縮</strong></li>
+            <li><strong>高優先度ISRのWCETを短く保つ</strong></li>
+            <li><strong>低優先度タスクをLong Taskに集約</strong>し、高優先度タスクへの影響を分離</li>
+          </ul>
+
+          <h2 id="summary">まとめ</h2>
+          <ul>
+            <li>リアルタイムは「速い」ではなく<strong>「デッドラインを100%守る」</strong>こと</li>
+            <li>タスク周期は制御対象のダイナミクスから逆算する (シャノン定理)</li>
+            <li><strong>RMS (レート単調スケジューリング)</strong>: 周期が短い = 優先度が高い</li>
+            <li>CPU負荷率は<strong>WCET / 周期の合計 ≤ 70〜80%</strong> が実務の目安</li>
+            <li>ジッターはSchedule Table・ISR最短化・クリティカルセクション短縮で対策</li>
+          </ul>
+          <p>車載ソフト設計章、そしてこのサイトの全8章がここで揃いました。AUTOSARという「車に宿る魔法体系」の輪郭が見えてきたなら、この旅は成功です。</p>
+        </Prose>
+
+        <nav class="mt-20 pt-10 border-t border-amber-900/30 flex flex-col sm:flex-row items-stretch gap-3">
+          <a href="/topics/design/fmea-and-design" class="flex-1 group border border-amber-900/40 hover:border-amber-700 rounded-lg p-4 transition-colors">
+            <div class="font-mono text-[10px] text-amber-700 tracking-widest mb-1">← PREV · DESIGN.02</div>
+            <div class="text-amber-300 group-hover:text-amber-100 transition-colors">FMEAと設計パターン</div>
+          </a>
+          <a href="/" class="flex-1 group border border-amber-900/40 hover:border-amber-700 rounded-lg p-4 transition-colors text-right">
+            <div class="font-mono text-[10px] text-amber-700 tracking-widest mb-1">← HOME</div>
+            <div class="text-amber-300 group-hover:text-amber-100 transition-colors">トップへ戻る</div>
+          </a>
+        </nav>
+      </article>
+      <aside class="hidden lg:block">
+        <div class="sticky top-28 border-l border-amber-900/40 pl-5">
+          <div class="font-mono text-[10px] text-amber-700 tracking-widest mb-4">// TABLE OF CONTENTS</div>
+          <ul class="space-y-3 text-sm">
+            {toc.map(t => (
+              <li><a href={`#${t.id}`} class="text-gray-500 hover:text-amber-400 transition-colors block leading-snug">{t.label}</a></li>
+            ))}
+          </ul>
+        </div>
+      </aside>
+    </div>
+  </div>
+</Page>

@@ -1,0 +1,231 @@
+---
+import Page from '../../../layouts/Page.astro';
+import Breadcrumb from '../../../components/Breadcrumb.astro';
+import PageHeader from '../../../components/PageHeader.astro';
+import Prose from '../../../components/Prose.astro';
+import Spell from '../../../components/Spell.astro';
+import CodeBlock from '../../../components/CodeBlock.astro';
+
+const toc = [
+  { id: 'fmea', label: 'FMEAの基本' },
+  { id: 'sw-fmea', label: 'ソフトウェアFMEA' },
+  { id: 'default-value', label: 'デフォルト値設計' },
+  { id: 'failsafe', label: 'フェイルセーフ' },
+  { id: 'watchdog', label: 'Watchdog — 自己監視' },
+  { id: 'redundancy', label: '冗長化' },
+  { id: 'summary', label: 'まとめ' },
+];
+---
+
+<Page title="FMEAと設計パターン | AUTOSAR.MAGIC" description="FMEA（故障モード影響解析）とフェイルセーフ・デフォルト値・Watchdog・冗長化の設計パターンを解説。">
+  <div class="max-w-5xl mx-auto px-6">
+    <Breadcrumb items={[
+      { label: 'HOME', href: '/' },
+      { label: 'TOPICS', href: '/#topics' },
+      { label: '車載ソフト設計', href: '/topics/design' },
+      { label: 'FMEA & DESIGN' },
+    ]} />
+    <PageHeader
+      chapter="DESIGN · #02 :: FMEA"
+      title="FMEAと設計パターン"
+      subtitle="故障の先読み — 壊れても安全であるために。FMEAで故障を予測し、デフォルト値・フェイルセーフ・Watchdog・冗長化で「壊れ方を設計する」。"
+      meta="読了時間: 約14分 · レベル: 中級 · 最終更新: 2026-05-29"
+      accent="amber"
+    />
+    <div class="grid lg:grid-cols-[1fr_220px] gap-12">
+      <article>
+        <Prose>
+          <p>
+            完璧なソフトウェアは存在しない。ハードウェアも壊れる。外部入力は予期せず化ける。それでも車を安全に動かし続けるには、<strong>「壊れ方を先に設計する」</strong>という逆説的なアプローチが必要だ。
+          </p>
+
+          <h2 id="fmea">FMEAの基本</h2>
+          <p>
+            <strong>FMEA (Failure Mode and Effects Analysis — 故障モード影響解析)</strong> は、起こりうる故障をすべてリストアップし、その影響と対策を体系的に整理する手法だ。
+          </p>
+          <p>各故障モードに対して評価する三指標:</p>
+          <table>
+            <thead><tr><th>指標</th><th>意味</th><th>スケール</th></tr></thead>
+            <tbody>
+              <tr><td><strong>Severity (S)</strong></td><td>故障の影響の深刻さ</td><td>1〜10</td></tr>
+              <tr><td><strong>Occurrence (O)</strong></td><td>故障が発生する確率</td><td>1〜10</td></tr>
+              <tr><td><strong>Detection (D)</strong></td><td>故障を検出できる確率の逆数 (低=検出しやすい)</td><td>1〜10</td></tr>
+            </tbody>
+          </table>
+          <p><strong>RPN (Risk Priority Number) = S × O × D</strong>。RPNが高いほど優先的に対策する。</p>
+
+          <h2 id="sw-fmea">ソフトウェアFMEAの例</h2>
+          <p>車速センサ値の処理SWCに対するSW-FMEAの一部を示す。</p>
+        </Prose>
+
+        <div class="my-8 border border-amber-900/40 rounded-xl bg-[#06060f]/80 overflow-hidden">
+          <div class="px-5 py-3 border-b border-amber-900/40 font-mono text-[10px] text-amber-600 tracking-widest">SW-FMEA — VehicleSpeedSWC (抜粋)</div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-xs font-mono min-w-[700px]">
+              <thead>
+                <tr class="border-b border-amber-900/30 text-amber-500">
+                  <th class="text-left px-4 py-3">故障モード</th>
+                  <th class="px-3 py-3">S</th>
+                  <th class="px-3 py-3">O</th>
+                  <th class="px-3 py-3">D</th>
+                  <th class="px-3 py-3">RPN</th>
+                  <th class="text-left px-4 py-3">対策</th>
+                </tr>
+              </thead>
+              <tbody>
+                {[
+                  ['センサ値が範囲外 (ショート/断線)', '8', '3', '2', '48', 'レンジチェック + Dem報告 + デフォルト値使用'],
+                  ['センサ値が固着 (変化なし)', '6', '2', '4', '48', 'Freeze検出 (N周期変化なし) + Dem報告'],
+                  ['タイムアウト (受信なし)', '7', '2', '2', '28', 'DataReceivedErrorEvent + フェイルセーフ値'],
+                  ['演算オーバーフロー', '5', '1', '3', '15', 'Saturation演算 + 上限値クランプ'],
+                  ['Runnable未実行 (OSタスク停止)', '9', '1', '4', '36', 'Watchdog + EcuMリセット'],
+                ].map(([mode, s, o, d, rpn, action]) => (
+                  <tr class="border-b border-gray-800/30 hover:bg-amber-950/10">
+                    <td class="px-4 py-3 text-gray-300">{mode}</td>
+                    <td class="px-3 py-3 text-center text-red-400">{s}</td>
+                    <td class="px-3 py-3 text-center text-amber-400">{o}</td>
+                    <td class="px-3 py-3 text-center text-blue-400">{d}</td>
+                    <td class="px-3 py-3 text-center text-white font-bold">{rpn}</td>
+                    <td class="px-4 py-3 text-gray-500">{action}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <Prose>
+          <h2 id="default-value">デフォルト値設計</h2>
+          <p>
+            センサ失効・通信断絶・演算エラー時に「何を使うか」を事前に設計する。これが<strong>デフォルト値 (Substitute Value / Safe Value)</strong> だ。
+          </p>
+          <ul>
+            <li><strong>フェイルサイレント値</strong>: 最も安全な「静止」を表す値。例: 車速=0、スロットル=0%</li>
+            <li><strong>最終有効値 (Last Known Good)</strong>: 最後に正常受信した値を保持。短時間の断絶に有効</li>
+            <li><strong>フォールバック値</strong>: 外部入力不能時のデフォルト動作値。センサ失効時に0より少し大きな値を使うなど</li>
+          </ul>
+
+          <CodeBlock lang="c" title="デフォルト値の実装パターン">
+{`#define SPEED_DEFAULT_KMH   0u       /* フェイルサイレント */
+#define SPEED_VALID_MIN     0u
+#define SPEED_VALID_MAX     360u     /* 360 km/h を超えるのは物理的にあり得ない */
+
+static uint16_t g_lastValidSpeed = SPEED_DEFAULT_KMH;
+
+void SpeedCtrl_10ms(void)
+{
+    uint16_t rawSpeed;
+    Std_ReturnType ret;
+
+    ret = Rte_Read_SpeedIn_VehicleSpeed(&rawSpeed);
+
+    if ((ret == RTE_E_OK) &&
+        (rawSpeed >= SPEED_VALID_MIN) &&
+        (rawSpeed <= SPEED_VALID_MAX)) {
+        /* 正常: 有効値を更新 */
+        g_lastValidSpeed = rawSpeed;
+    } else {
+        /* 異常: Demに報告し、フォールバック値を使う */
+        Dem_SetEventStatus(DemConf_DemEvent_SpeedSensorFault,
+                           DEM_EVENT_STATUS_FAILED);
+        rawSpeed = g_lastValidSpeed;  /* または SPEED_DEFAULT_KMH */
+    }
+
+    /* 以降の処理は rawSpeed (有効または代替値) で続行 */
+    Rte_Write_DisplayOut_SpeedKmh(rawSpeed / 100u);
+}`}
+          </CodeBlock>
+
+          <h2 id="failsafe">フェイルセーフ</h2>
+          <p>
+            <strong>フェイルセーフ</strong>は「故障時に安全な状態に遷移する」設計思想だ。「動かなくなる = 安全」とは限らない。
+          </p>
+          <ul>
+            <li><strong>電動パワステ失効</strong>: 電動アシスト停止 → 重いが人力で操舵可能。これはフェイルセーフ。</li>
+            <li><strong>スロットル故障</strong>: 全開ではなく<em>全閉</em>にデフォルト → エンジン停止の方が安全。</li>
+            <li><strong>ブレーキ故障</strong>: ポンプ失効時でも油圧残圧で数回は制動可能に設計する。</li>
+          </ul>
+
+          <Spell type="rune" label="フェイルセーフの設計問答">
+            設計時に必ず問う: <em>「このコンポーネントが壊れたとき、システム全体は何をするか？」</em><br/>
+            答えが「わからない」なら設計が未完成だ。
+          </Spell>
+
+          <h2 id="watchdog">Watchdog — 自己監視の魔術</h2>
+          <p>
+            ソフトウェアが暴走・ハング・無限ループに陥ったとき、誰が気づくのか。<strong>Watchdog Timer (WDT)</strong> がその役を担う。
+          </p>
+          <p>仕組みはシンプル。</p>
+          <ol>
+            <li>ハードウェアタイマが一定時間を刻む</li>
+            <li>ソフトウェアが定期的に「生きてる」とWDTに知らせる (キックまたはクリア)</li>
+            <li><strong>タイムアウトまでにキックが来なければ、WDTがシステムをリセット</strong></li>
+          </ol>
+
+          <CodeBlock lang="c" title="AUTOSARのWatchdog管理 (WdgM)">
+{`/* AUTOSARではWdgM (Watchdog Manager) が管理する */
+/* SWCはCheckpointと呼ばれるポイントを通過したことを報告する */
+
+void SpeedCtrl_10ms(void)
+{
+    /* 処理開始を報告 */
+    WdgM_CheckpointReached(
+        WDGM_SUPERVISED_ENTITY_SPEED_CTRL,
+        WDGM_CHECKPOINT_SPEED_CTRL_START
+    );
+
+    /* ... 制御処理 ... */
+
+    /* 処理終了を報告 */
+    WdgM_CheckpointReached(
+        WDGM_SUPERVISED_ENTITY_SPEED_CTRL,
+        WDGM_CHECKPOINT_SPEED_CTRL_END
+    );
+    /* WdgMはCheckpointの通過順序・タイミングを監視 */
+    /* 異常を検出したらWdgドライバをキックせず → WDTリセット */
+}`}
+          </CodeBlock>
+
+          <h2 id="redundancy">冗長化</h2>
+          <p>
+            ASIL Dのシステムでは、単一のハードウェアやソフトウェアに依存できない。<strong>冗長化 (Redundancy)</strong> によって単一故障点を排除する。
+          </p>
+          <ul>
+            <li><strong>デュアルチャンネル</strong>: 2つの独立したセンサ・プロセッサが同じ判定を行い、結果を比較する</li>
+            <li><strong>Lock-Step CPU</strong>: 2コアが同じ命令を実行し、出力が一致しなければエラー</li>
+            <li><strong>ソフトウェア冗長</strong>: 同一アルゴリズムを独立した2つのコード(異なるコンパイラで生成)で実行し比較</li>
+          </ul>
+
+          <h2 id="summary">まとめ</h2>
+          <ul>
+            <li>FMEAは故障を予測し、<strong>RPN (S×O×D)</strong> で優先順位付けして対策する</li>
+            <li><strong>デフォルト値</strong>で失効時の動作を事前に決める。「何もしない」は設計ではない</li>
+            <li><strong>フェイルセーフ</strong>は故障時に「最も安全な状態」に自律遷移する設計</li>
+            <li><strong>Watchdog</strong>はソフトウェアの暴走を外部から監視し、自動リセットで回復する</li>
+            <li>ASIL D では<strong>冗長化</strong>が必須。単一故障点を設計から排除する</li>
+          </ul>
+        </Prose>
+        <nav class="mt-20 pt-10 border-t border-amber-900/30 flex flex-col sm:flex-row items-stretch gap-3">
+          <a href="/topics/design/functional-safety" class="flex-1 group border border-amber-900/40 hover:border-amber-700 rounded-lg p-4 transition-colors">
+            <div class="font-mono text-[10px] text-amber-700 tracking-widest mb-1">← PREV · DESIGN.01</div>
+            <div class="text-amber-300 group-hover:text-amber-100 transition-colors">機能安全とISO 26262</div>
+          </a>
+          <a href="/topics/design/realtime-design" class="flex-1 group border border-amber-900/40 hover:border-amber-700 rounded-lg p-4 transition-colors text-right">
+            <div class="font-mono text-[10px] text-amber-700 tracking-widest mb-1">NEXT · DESIGN.03 →</div>
+            <div class="text-amber-300 group-hover:text-amber-100 transition-colors">リアルタイム設計</div>
+          </a>
+        </nav>
+      </article>
+      <aside class="hidden lg:block">
+        <div class="sticky top-28 border-l border-amber-900/40 pl-5">
+          <div class="font-mono text-[10px] text-amber-700 tracking-widest mb-4">// TABLE OF CONTENTS</div>
+          <ul class="space-y-3 text-sm">
+            {toc.map(t => (
+              <li><a href={`#${t.id}`} class="text-gray-500 hover:text-amber-400 transition-colors block leading-snug">{t.label}</a></li>
+            ))}
+          </ul>
+        </div>
+      </aside>
+    </div>
+  </div>
+</Page>

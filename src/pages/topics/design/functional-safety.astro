@@ -1,0 +1,177 @@
+---
+import Page from '../../../layouts/Page.astro';
+import Breadcrumb from '../../../components/Breadcrumb.astro';
+import PageHeader from '../../../components/PageHeader.astro';
+import Prose from '../../../components/Prose.astro';
+import Spell from '../../../components/Spell.astro';
+import CodeBlock from '../../../components/CodeBlock.astro';
+
+const toc = [
+  { id: 'what', label: '機能安全とは何か' },
+  { id: 'hara', label: 'HARA — 危険源分析' },
+  { id: 'asil', label: 'ASILの決め方' },
+  { id: 'sw-impact', label: 'ソフトウェアへの影響' },
+  { id: 'evidence', label: '安全証跡' },
+  { id: 'summary', label: 'まとめ' },
+];
+---
+
+<Page title="機能安全とISO 26262 | AUTOSAR.MAGIC" description="機能安全の基礎。ISO 26262・HARA・ASIL決定・ソフトウェアへの影響・安全証跡を入門者向けに解説。">
+  <div class="max-w-5xl mx-auto px-6">
+    <Breadcrumb items={[
+      { label: 'HOME', href: '/' },
+      { label: 'TOPICS', href: '/#topics' },
+      { label: '車載ソフト設計', href: '/topics/design' },
+      { label: 'FUNCTIONAL SAFETY' },
+    ]} />
+    <PageHeader
+      chapter="DESIGN · #01 :: FUNCTIONAL SAFETY"
+      title="機能安全とISO 26262"
+      subtitle="命を守る魔法陣 — 安全の設計思想。「壊れない」ではなく「壊れても安全」という発想の転換が、現代の車載ソフト設計の出発点だ。"
+      meta="読了時間: 約11分 · レベル: 入門 · 最終更新: 2026-05-29"
+      accent="amber"
+    />
+    <div class="grid lg:grid-cols-[1fr_220px] gap-12">
+      <article>
+        <Prose>
+          <p>
+            エンジンが誤って全開になる。ブレーキが効かなくなる。エアバッグが誤爆する — これらは車載ソフトウェアのバグが<strong>人命に直結する</strong>失敗モードだ。
+          </p>
+          <p>
+            <strong>機能安全 (Functional Safety)</strong> は「電子システムの失敗による不合理なリスクがないこと」を保証するための工学的アプローチだ。車載向けの国際規格が <strong>ISO 26262</strong> で、2011年初版・2018年改訂2版が現在の主流だ。
+          </p>
+
+          <Spell type="spell" label="この記事のゴール">
+            「ASILって何ですか？」「なぜこんなに証跡が必要なんですか？」に、設計の論理で答えられるようになる。機能安全をただの「書類仕事」でなく<em>安全を構造的に保証する思想</em>として捉える。
+          </Spell>
+
+          <h2 id="what">機能安全とは何か</h2>
+          <p>機能安全の出発点は、こんな問いだ。</p>
+          <blockquote>
+            「このシステムが誤動作したとき、誰かが怪我をするか？ 死ぬか？」
+          </blockquote>
+          <p>
+            ゼロリスクは存在しない。だから「<strong>許容できないリスクを許容できるレベルに下げる</strong>」ことが目標だ。ISO 26262はそのプロセスを規定する。
+          </p>
+          <p>重要な概念の区別:</p>
+          <ul>
+            <li><strong>Hazard (危険源)</strong>: 傷害を引き起こす可能性のある状態。例: 「意図しないアクセル全開」</li>
+            <li><strong>Risk (リスク)</strong>: 危険源が実際に発生する確率 × 被害の深刻さ</li>
+            <li><strong>Safety Goal (安全目標)</strong>: リスクを下げるために守るべきこと。例: 「意図しないアクセル全開を防ぐ」</li>
+          </ul>
+
+          <h2 id="hara">HARA — 危険源分析</h2>
+          <p>
+            <strong>HARA (Hazard Analysis and Risk Assessment)</strong> は、開発初期に行う体系的な危険源分析だ。
+          </p>
+          <p>各危険源に対して三つのパラメータを評価する:</p>
+          <table>
+            <thead><tr><th>パラメータ</th><th>説明</th><th>段階</th></tr></thead>
+            <tbody>
+              <tr>
+                <td><strong>Severity (S)</strong></td>
+                <td>最悪ケースの被害の深刻さ</td>
+                <td>S0 (傷害なし) 〜 S3 (致命的)</td>
+              </tr>
+              <tr>
+                <td><strong>Exposure (E)</strong></td>
+                <td>危険源が発生しうる状況への曝露確率</td>
+                <td>E0 (ほぼ不可能) 〜 E4 (高頻度)</td>
+              </tr>
+              <tr>
+                <td><strong>Controllability (C)</strong></td>
+                <td>ドライバが危険を回避できる確率</td>
+                <td>C0 (容易) 〜 C3 (ほぼ制御不能)</td>
+              </tr>
+            </tbody>
+          </table>
+          <p>S・E・Cの組み合わせから <strong>ASIL (Automotive Safety Integrity Level)</strong> が決まる。</p>
+
+          <h2 id="asil">ASILの決め方</h2>
+          <p>
+            ASIL は QM・A・B・C・D の5段階だ。数値が大きいほど高い安全要求を意味する。
+          </p>
+
+          <CodeBlock lang="text" title="ASIL決定 — ブレーキシステムの例">
+{`Hazard: 「意図しないブレーキ解除」
+
+Severity:     S3 (高速走行中なら致命的)
+Exposure:     E4 (車を運転するたびに可能性あり)
+Controllability: C3 (ブレーキが効かなければ回避困難)
+
+→ S3 × E4 × C3 = ASIL D
+
+つまり: このHazardに対するSafety Goalは ASIL D で達成しなければならない。
+AUTOSARの Braking SWC は ASIL D 相当の開発プロセスが要求される。`}
+          </CodeBlock>
+
+          <h2 id="sw-impact">ソフトウェアへの影響</h2>
+          <p>ASIL が決まると、ソフトウェア開発に次の要求が課される。</p>
+          <table>
+            <thead><tr><th>要求事項</th><th>ASIL A/B</th><th>ASIL C/D</th></tr></thead>
+            <tbody>
+              <tr><td>コーディング規約</td><td>MISRA-C 推奨</td><td>MISRA-C 必須</td></tr>
+              <tr><td>静的解析</td><td>推奨</td><td>必須</td></tr>
+              <tr><td>コードカバレッジ</td><td>Statement (C0)</td><td>MC/DC (ASIL D)</td></tr>
+              <tr><td>ユニットテスト</td><td>推奨</td><td>必須 (要件トレーサブル)</td></tr>
+              <tr><td>正式なレビュー</td><td>推奨</td><td>必須 (2-person rule)</td></tr>
+              <tr><td>独立テスト</td><td>-</td><td>独立したテストチームが必要</td></tr>
+            </tbody>
+          </table>
+
+          <Spell type="rune" label="MC/DCとは">
+            <strong>Modified Condition/Decision Coverage</strong>。すべての条件式の個々の条件が、判定結果を独立して変えられることを証明するカバレッジ基準。<code>if (A && B)</code>なら4通りのテストが必要になる。AのみFalse、BのみFalse、両方True、両方False。ASIL D では必須。
+          </Spell>
+
+          <h2 id="evidence">安全証跡</h2>
+          <p>
+            ISO 26262が求める最も重要なアウトプットが<strong>安全証跡 (Safety Case)</strong> だ。「このシステムは許容リスク以下である」ということを、設計・テスト・解析の記録で証明する。
+          </p>
+          <ul>
+            <li>HARA結果文書</li>
+            <li>Safety Goalと技術的安全概念 (TSC)</li>
+            <li>ソフトウェア安全要求仕様 (SW Safety Requirement)</li>
+            <li>設計書・コードレビュー記録</li>
+            <li>テストレポート・カバレッジレポート</li>
+            <li>静的解析レポート・MISRA準拠記録</li>
+            <li>Deviation記録</li>
+          </ul>
+          <p>これらは「書類のための書類」ではない。<em>「なぜこの設計で安全か」のロジックを記録した証跡</em>だ。後から見てもわかるように書く。</p>
+
+          <Spell type="contract" label="第三者認証">
+            ASIL Cまたは Dの製品は、通常TÜV SÜD・TÜV Rheinland等の<strong>認証機関による第三者監査</strong>を受ける。安全証跡が審査され、合格すれば認証を取得。認証なしでは一部の市場に出荷できない。証跡の質がビジネスに直結する。
+          </Spell>
+
+          <h2 id="summary">まとめ</h2>
+          <ul>
+            <li>機能安全は「壊れても安全」を<strong>構造的に保証する工学アプローチ</strong></li>
+            <li>ISO 26262がプロセスを規定。ASIL QM〜Dで安全要求レベルを表す</li>
+            <li>ASILは <strong>Severity × Exposure × Controllability</strong> のHARAで決定</li>
+            <li>ASILが高いほど、コーディング規約・テスト・レビューの要求が厳格になる</li>
+            <li>安全証跡は「なぜ安全か」を証明する文書群。第三者認証の根拠</li>
+          </ul>
+        </Prose>
+        <nav class="mt-20 pt-10 border-t border-amber-900/30 flex flex-col sm:flex-row items-stretch gap-3">
+          <a href="/topics/design" class="flex-1 group border border-amber-900/40 hover:border-amber-700 rounded-lg p-4 transition-colors">
+            <div class="font-mono text-[10px] text-amber-700 tracking-widest mb-1">← 章扉</div>
+            <div class="text-amber-300 group-hover:text-amber-100 transition-colors">車載ソフト設計章へ戻る</div>
+          </a>
+          <a href="/topics/design/fmea-and-design" class="flex-1 group border border-amber-900/40 hover:border-amber-700 rounded-lg p-4 transition-colors text-right">
+            <div class="font-mono text-[10px] text-amber-700 tracking-widest mb-1">NEXT · DESIGN.02 →</div>
+            <div class="text-amber-300 group-hover:text-amber-100 transition-colors">FMEAと設計パターン</div>
+          </a>
+        </nav>
+      </article>
+      <aside class="hidden lg:block">
+        <div class="sticky top-28 border-l border-amber-900/40 pl-5">
+          <div class="font-mono text-[10px] text-amber-700 tracking-widest mb-4">// TABLE OF CONTENTS</div>
+          <ul class="space-y-3 text-sm">
+            {toc.map(t => (
+              <li><a href={`#${t.id}`} class="text-gray-500 hover:text-amber-400 transition-colors block leading-snug">{t.label}</a></li>
+            ))}
+          </ul>
+        </div>
+      </aside>
+    </div>
+  </div>
+</Page>

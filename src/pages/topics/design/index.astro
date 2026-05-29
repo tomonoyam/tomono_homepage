@@ -1,0 +1,122 @@
+---
+import Page from '../../../layouts/Page.astro';
+import Breadcrumb from '../../../components/Breadcrumb.astro';
+import PageHeader from '../../../components/PageHeader.astro';
+
+const articles = [
+  {
+    slug: 'functional-safety',
+    no: '01',
+    title: '機能安全とISO 26262',
+    sub: '命を守る魔法陣 — 安全の設計思想',
+    desc: 'ISO 26262が要求するASILの概念・Hazard Analysis・Safety Goalから、ソフトウェア開発への影響まで。機能安全エンジニアが毎日向き合う世界を入門レベルで解説。',
+    level: '入門',
+    levelColor: 'text-green-400 border-green-800/50',
+    time: '11分',
+  },
+  {
+    slug: 'fmea-and-design',
+    no: '02',
+    title: 'FMEAと設計パターン',
+    sub: '故障の先読み — 壊れても安全であるために',
+    desc: 'FMEA (故障モード影響解析) の手法と、その結果から導かれる設計パターン。デフォルト値・フェイルセーフ・冗長化・Watchdog。壊れ方を設計する技術。',
+    level: '中級',
+    levelColor: 'text-blue-400 border-blue-800/50',
+    time: '14分',
+  },
+  {
+    slug: 'realtime-design',
+    no: '03',
+    title: 'リアルタイム設計',
+    sub: '時間の呪縛 — デッドラインを守る術',
+    desc: 'タスク分割・優先度設計・レート単調スケジューリング・CPU負荷率計算。デッドラインを静的に保証するためのリアルタイムシステム設計の基礎。',
+    level: '中級',
+    levelColor: 'text-blue-400 border-blue-800/50',
+    time: '16分',
+  },
+];
+
+const asil = [
+  { level: 'QM',     full: 'Quality Management', color: 'text-gray-400 border-gray-700/50', desc: '機能安全要件なし。通常の品質管理のみ。' },
+  { level: 'ASIL A', full: 'Automotive SIL A',   color: 'text-green-400 border-green-700/50', desc: '最低レベルの安全要求。軽微な傷害リスク。' },
+  { level: 'ASIL B', full: 'Automotive SIL B',   color: 'text-yellow-400 border-yellow-700/50', desc: '中程度の安全要求。重傷リスク。' },
+  { level: 'ASIL C', full: 'Automotive SIL C',   color: 'text-orange-400 border-orange-700/50', desc: '高い安全要求。生命の危険。' },
+  { level: 'ASIL D', full: 'Automotive SIL D',   color: 'text-red-400 border-red-700/50', desc: '最高安全レベル。重篤または致命的傷害。ブレーキ・エアバッグ等。' },
+];
+---
+
+<Page title="車載ソフト設計 — 命を守る魔法陣 | AUTOSAR.MAGIC" description="車載ソフトウェア設計の基礎。機能安全ISO 26262・FMEA・リアルタイム設計をまとめた章扉。">
+  <div class="max-w-6xl mx-auto px-6">
+    <Breadcrumb items={[
+      { label: 'HOME', href: '/' },
+      { label: 'TOPICS', href: '/#topics' },
+      { label: '車載ソフト設計' },
+    ]} />
+    <PageHeader
+      chapter="CHAPTER 08 :: AUTOMOTIVE SW DESIGN"
+      title="車載ソフト設計 — 命を守る魔法陣"
+      subtitle="「壊れても安全であること」。この一行が、車載ソフトウェアの設計思想を根本から変える。ISO 26262・FMEA・リアルタイム設計の世界へ。"
+      meta="ISO 26262 · ASIL · FMEA · Functional Safety · Real-Time Design"
+      accent="amber"
+    />
+
+    <!-- ASIL levels -->
+    <section class="mb-24">
+      <div class="flex items-center gap-4 mb-12">
+        <div class="h-px flex-1 bg-gradient-to-r from-transparent to-amber-800/50"></div>
+        <span class="font-mono text-xs text-amber-600 tracking-widest px-4">// ASIL LEVELS</span>
+        <div class="h-px flex-1 bg-gradient-to-l from-transparent to-amber-800/50"></div>
+      </div>
+      <h2 class="text-2xl md:text-3xl font-serif font-semibold text-white text-center mb-12">ASILレベル</h2>
+      <div class="space-y-3">
+        {asil.map(a => (
+          <div class={`border rounded-lg px-6 py-4 flex flex-col sm:flex-row sm:items-center gap-4 ${a.color}`}>
+            <div class="font-mono font-bold text-sm min-w-[80px]">{a.level}</div>
+            <div class="text-gray-500 text-xs min-w-[200px]">{a.full}</div>
+            <div class="text-gray-400 text-sm">{a.desc}</div>
+          </div>
+        ))}
+      </div>
+      <p class="text-center text-gray-600 font-mono text-[10px] mt-6">ASILはSeverity × Probability of Exposure × Controllability から決定される</p>
+    </section>
+
+    <!-- Articles -->
+    <section class="mb-24">
+      <div class="flex items-center gap-4 mb-12">
+        <div class="h-px flex-1 bg-gradient-to-r from-transparent to-amber-800/50"></div>
+        <span class="font-mono text-xs text-amber-600 tracking-widest px-4">// CHAPTER ARTICLES</span>
+        <div class="h-px flex-1 bg-gradient-to-l from-transparent to-amber-800/50"></div>
+      </div>
+      <h2 class="text-2xl md:text-3xl font-serif font-semibold text-white text-center mb-12">この章の記事</h2>
+      <div class="grid md:grid-cols-3 gap-6">
+        {articles.map(a => (
+          <a href={`/topics/design/${a.slug}`} class="group relative border border-amber-900/50 rounded-xl bg-[#0a0a1f]/80 overflow-hidden hover:-translate-y-2 hover:border-amber-600/70 transition-all duration-300 hover:shadow-[0_0_30px_rgba(245,158,11,0.12)]">
+            <div class="h-1 bg-gradient-to-r from-amber-500/40 to-red-500/40"></div>
+            <div class="p-6">
+              <div class="flex items-center justify-between mb-4">
+                <span class={`text-[10px] font-mono px-2 py-1 rounded border ${a.levelColor}`}>{a.level}</span>
+                <span class="text-gray-600 text-[11px] font-mono">{a.time}</span>
+              </div>
+              <div class="font-mono text-[10px] text-gray-700 mb-2">DESIGN · #{a.no}</div>
+              <h3 class="text-white font-serif text-xl font-semibold mb-1 leading-snug group-hover:text-amber-100 transition-colors">{a.title}</h3>
+              <div class="text-amber-400 text-xs font-mono mb-3">{a.sub}</div>
+              <p class="text-gray-500 text-sm leading-relaxed line-clamp-3">{a.desc}</p>
+              <div class="mt-5 pt-4 border-t border-gray-800/50 flex items-center justify-between">
+                <span class="text-gray-600 text-xs font-mono">DESIGN.{a.no}</span>
+                <span class="text-amber-500 text-xs font-mono group-hover:translate-x-1 transition-transform">読む →</span>
+              </div>
+            </div>
+          </a>
+        ))}
+      </div>
+    </section>
+
+    <section class="mb-20 border-t border-amber-900/30 pt-10">
+      <div class="flex flex-col md:flex-row items-center justify-between gap-4 text-sm">
+        <a href="/" class="font-mono text-amber-600 hover:text-amber-400 transition-colors">← HOME</a>
+        <div class="font-mono text-xs text-gray-700 tracking-widest">CHAPTER 08 / AUTOMOTIVE SW DESIGN</div>
+        <a href={`/topics/design/${articles[0].slug}`} class="font-mono text-amber-600 hover:text-amber-400 transition-colors">最初の記事 →</a>
+      </div>
+    </section>
+  </div>
+</Page>
