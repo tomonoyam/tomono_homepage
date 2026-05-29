@@ -1,0 +1,111 @@
+---
+import Page from '../layouts/Page.astro';
+import Breadcrumb from '../components/Breadcrumb.astro';
+import { articles, chapters, colorMap } from '../data/articles';
+
+const levelColors: Record<string, string> = {
+  '入門': 'text-green-400 border-green-800/50 bg-green-950/20',
+  '中級': 'text-blue-400 border-blue-800/50 bg-blue-950/20',
+  '上級': 'text-amber-400 border-amber-800/50 bg-amber-950/20',
+};
+
+const totalTime = articles.reduce((sum, a) => sum + parseInt(a.time), 0);
+---
+
+<Page
+  title="全記事一覧 — 魔導書目録 | AUTOSAR.MAGIC"
+  description="AUTOSARと車載ソフトウェアの全記事一覧。8章24記事を章別・レベル別に閲覧できる。"
+>
+  <div class="max-w-6xl mx-auto px-6 pb-24">
+    <Breadcrumb items={[
+      { label: 'HOME', href: '/' },
+      { label: '全記事一覧' },
+    ]} />
+
+    <!-- Header -->
+    <header class="py-12 mb-12 border-b border-cyan-900/30">
+      <div class="font-mono text-xs text-cyan-600 tracking-[0.3em] mb-4 flex items-center gap-3">
+        <span class="h-px w-12 bg-gradient-to-r from-cyan-400 to-blue-500"></span>
+        <span>GRIMOIRE INDEX</span>
+      </div>
+      <h1 class="text-4xl md:text-5xl font-serif font-semibold text-white mb-4">
+        魔導書目録
+      </h1>
+      <p class="text-gray-400 text-lg font-light max-w-2xl">
+        8章・{articles.length}記事・総読了時間 約{totalTime}分。AUTOSARと車載ソフトウェアの全コンテンツを一覧する。
+      </p>
+
+      <!-- Stats -->
+      <div class="flex flex-wrap gap-6 mt-8 font-mono text-xs text-gray-600">
+        {chapters.map(ch => {
+          const count = articles.filter(a => a.chapterSlug === ch.slug).length;
+          return (
+            <a href={`/topics/${ch.slug}`} class={`flex items-center gap-2 hover:${colorMap[ch.color].text} transition-colors`}>
+              <span class={`w-2 h-2 rounded-full bg-current ${colorMap[ch.color].text}`}></span>
+              <span>{ch.title}</span>
+              <span class="opacity-50">{count}本</span>
+            </a>
+          );
+        })}
+      </div>
+    </header>
+
+    <!-- Chapter sections -->
+    {chapters.map(ch => {
+      const chArticles = articles.filter(a => a.chapterSlug === ch.slug);
+      const c = colorMap[ch.color];
+      return (
+        <section class="mb-20">
+          <!-- Chapter heading -->
+          <div class="flex items-center gap-4 mb-8">
+            <a href={`/topics/${ch.slug}`} class={`font-mono text-xs ${c.text} tracking-widest hover:opacity-70 transition-opacity`}>
+              CH.{ch.id}
+            </a>
+            <h2 class="text-xl font-serif font-semibold text-white">{ch.title}</h2>
+            <div class={`h-px flex-1 bg-gradient-to-r from-current to-transparent ${c.text} opacity-20`}></div>
+            <a href={`/topics/${ch.slug}`} class={`font-mono text-[10px] ${c.text} opacity-60 hover:opacity-100 transition-opacity`}>
+              章扉 →
+            </a>
+          </div>
+
+          <!-- Article list -->
+          <div class="grid md:grid-cols-3 gap-4">
+            {chArticles.map(a => (
+              <a
+                href={`/topics/${a.chapterSlug}/${a.slug}`}
+                class={`group border ${c.border} rounded-xl bg-[#0a0a1f]/80 p-5 hover:-translate-y-1 hover:${c.bg} transition-all duration-300`}
+              >
+                <div class="flex items-center justify-between mb-3">
+                  <span class={`font-mono text-[10px] ${c.text} opacity-60`}>#{a.no}</span>
+                  <div class="flex items-center gap-2">
+                    <span class={`text-[9px] font-mono px-2 py-0.5 rounded border ${levelColors[a.level]}`}>{a.level}</span>
+                    <span class="text-gray-600 text-[10px] font-mono">{a.time}</span>
+                  </div>
+                </div>
+                <h3 class={`font-serif text-base font-semibold text-white mb-1.5 leading-snug group-hover:${c.text} transition-colors`}>
+                  {a.title}
+                </h3>
+                <div class={`font-mono text-[10px] ${c.text} opacity-60 mb-2`}>{a.sub}</div>
+                <p class="text-gray-600 text-xs leading-relaxed line-clamp-2">{a.desc}</p>
+
+                <!-- Tags -->
+                <div class="flex flex-wrap gap-1 mt-3">
+                  {a.tags.slice(0, 3).map(tag => (
+                    <span class={`font-mono text-[9px] px-1.5 py-0.5 rounded border ${c.badge} opacity-60`}>#{tag}</span>
+                  ))}
+                </div>
+              </a>
+            ))}
+          </div>
+        </section>
+      );
+    })}
+
+    <!-- Back to top -->
+    <div class="text-center border-t border-cyan-900/30 pt-12">
+      <a href="/" class="inline-flex items-center gap-2 font-mono text-sm text-cyan-600 hover:text-cyan-400 transition-colors">
+        ← HOME に戻る
+      </a>
+    </div>
+  </div>
+</Page>

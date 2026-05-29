@@ -1,0 +1,74 @@
+---
+import Layout from '../layouts/Layout.astro';
+import Nav from '../components/Nav.astro';
+---
+
+<Layout title="404 — 召喚失敗 | AUTOSAR.MAGIC">
+  <Nav />
+  <main class="min-h-screen flex items-center justify-center px-6 relative overflow-hidden">
+    <!-- Background grid -->
+    <div class="absolute inset-0 bg-grid-pattern bg-grid opacity-50 pointer-events-none"></div>
+
+    <!-- Broken magic circle -->
+    <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] opacity-8 pointer-events-none">
+      <svg viewBox="0 0 500 500" fill="none" class="w-full h-full">
+        <!-- Broken outer circle — dashed and incomplete -->
+        <circle cx="250" cy="250" r="230" stroke="#00d4ff" stroke-width="0.8" stroke-dasharray="20 8" opacity="0.4"/>
+        <!-- Inner circle with gap -->
+        <path d="M 250 30 A 220 220 0 1 1 249 30" stroke="#7c3aed" stroke-width="0.5" opacity="0.3" stroke-linecap="round"/>
+        <!-- Fragmented hexagon lines -->
+        <line x1="250" y1="30" x2="250" y2="150" stroke="#00d4ff" stroke-width="0.5" opacity="0.3"/>
+        <line x1="440" y1="135" x2="350" y2="190" stroke="#00d4ff" stroke-width="0.5" opacity="0.2"/>
+        <!-- 404 in runic style -->
+        <text x="250" y="265" fill="#00d4ff" font-size="80" font-family="monospace" text-anchor="middle" opacity="0.08" font-weight="bold">404</text>
+      </svg>
+    </div>
+
+    <div class="relative z-10 text-center max-w-xl">
+      <!-- Status badge -->
+      <div class="mb-8 inline-flex items-center gap-2 text-xs font-mono text-red-500 tracking-widest border border-red-900/50 px-4 py-2 rounded-full bg-red-950/20">
+        <span class="w-1.5 h-1.5 bg-red-400 rounded-full animate-pulse"></span>
+        SYSTEM ERROR :: SUMMON_FAILED
+      </div>
+
+      <!-- Error code -->
+      <div class="font-mono text-8xl md:text-9xl font-bold text-transparent bg-gradient-to-b from-cyan-500/30 to-transparent bg-clip-text mb-2 select-none">
+        404
+      </div>
+
+      <h1 class="text-2xl md:text-3xl font-serif font-semibold text-white mb-4">
+        召喚失敗
+      </h1>
+
+      <p class="text-gray-400 leading-relaxed mb-3">
+        あなたが求めた魔法陣は、この世界に存在しない。
+      </p>
+      <p class="text-gray-600 text-sm font-mono mb-10">
+        The requested spell could not be found in this grimoire.
+      </p>
+
+      <!-- Terminal output -->
+      <div class="border border-red-900/40 rounded-lg bg-[#0a0a1f]/80 p-4 mb-10 text-left font-mono text-xs">
+        <div class="text-red-600 mb-1">ERROR_CODE: PAGE_NOT_FOUND</div>
+        <div class="text-gray-600">STACK_TRACE: RTE_E_NO_DATA</div>
+        <div class="text-gray-600">SUGGESTION: Check URL or return to home</div>
+        <div class="mt-2 text-cyan-700">
+          <span class="text-green-500">$</span> cd /home && ls --grimoire<span class="animate-pulse text-cyan-400">_</span>
+        </div>
+      </div>
+
+      <!-- Navigation -->
+      <div class="flex flex-col sm:flex-row gap-4 justify-center">
+        <a href="/" class="group relative px-8 py-3.5 text-sm font-mono tracking-wider text-cyan-300 border border-cyan-500/50 rounded hover:border-cyan-400 transition-all duration-300 hover:bg-cyan-950/30 hover:shadow-[0_0_20px_rgba(0,212,255,0.15)]">
+          ← HOME に戻る
+        </a>
+        <a href="/articles" class="px-8 py-3.5 text-sm font-mono tracking-wider text-gray-400 hover:text-gray-200 transition-colors border border-gray-800 rounded hover:border-gray-600">
+          全記事一覧
+        </a>
+        <a href="/glossary" class="px-8 py-3.5 text-sm font-mono tracking-wider text-gray-400 hover:text-gray-200 transition-colors border border-gray-800 rounded hover:border-gray-600">
+          魔法辞典
+        </a>
+      </div>
+    </div>
+  </main>
+</Layout>

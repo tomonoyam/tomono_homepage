@@ -8,10 +8,11 @@ const home = (anchor: string) => isHome ? `#${anchor}` : `/#${anchor}`;
     <a href="/" class="font-mono text-sm text-cyan-400 tracking-widest hover:text-cyan-300 transition-colors">
       <span class="text-cyan-600">✦</span> AUTOSAR.MAGIC
     </a>
-    <ul class="hidden md:flex items-center gap-8 text-sm text-gray-400">
+    <ul class="hidden md:flex items-center gap-6 text-sm text-gray-400">
       <li><a href={home('about')} class="hover:text-cyan-400 transition-colors">About</a></li>
       <li><a href={home('topics')} class="hover:text-cyan-400 transition-colors">Topics</a></li>
-      <li><a href={home('articles')} class="hover:text-cyan-400 transition-colors">Articles</a></li>
+      <li><a href="/articles" class="hover:text-cyan-400 transition-colors">Articles</a></li>
+      <li><a href="/glossary" class="hover:text-cyan-400 transition-colors">辞典</a></li>
       <li><a href={home('profile')} class="hover:text-cyan-400 transition-colors">Profile</a></li>
       <li><a href={home('contact')} class="hover:text-cyan-400 transition-colors border border-cyan-800 px-4 py-1.5 rounded hover:border-cyan-400">Contact</a></li>
     </ul>
@@ -25,7 +26,8 @@ const home = (anchor: string) => isHome ? `#${anchor}` : `/#${anchor}`;
     <ul class="flex flex-col gap-4 mt-4 text-sm text-gray-400 px-2">
       <li><a href={home('about')} class="hover:text-cyan-400 transition-colors">About</a></li>
       <li><a href={home('topics')} class="hover:text-cyan-400 transition-colors">Topics</a></li>
-      <li><a href={home('articles')} class="hover:text-cyan-400 transition-colors">Articles</a></li>
+      <li><a href="/articles" class="hover:text-cyan-400 transition-colors">全記事一覧</a></li>
+      <li><a href="/glossary" class="hover:text-cyan-400 transition-colors">魔法辞典</a></li>
       <li><a href={home('profile')} class="hover:text-cyan-400 transition-colors">Profile</a></li>
       <li><a href={home('contact')} class="hover:text-cyan-400 transition-colors">Contact</a></li>
     </ul>

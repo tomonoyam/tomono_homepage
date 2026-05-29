@@ -1,0 +1,216 @@
+---
+import Page from '../layouts/Page.astro';
+import Breadcrumb from '../components/Breadcrumb.astro';
+
+const terms = [
+  // A
+  { term: 'ARXML', read: 'アーアールエックスエムエル', magic: '魔導書の言語', category: 'A',
+    def: 'AUTOSAR XMLの略。ソフトウェアコンポーネント・ポート・インターフェース・BSW設定など、AUTOSARプロジェクトの全設計情報を格納するXMLベースのモデリング言語。',
+    spell: 'ツールが詠む設計の呪文。人間が書いた設計意図をRTEやBSW生成の基礎とする魔導書。' },
+  { term: 'ASIL', read: 'エーシルまたはアジル', magic: '安全の格付け印', category: 'A',
+    def: 'Automotive Safety Integrity Level。ISO 26262が定める機能安全の要求レベル。QM/A/B/C/Dの5段階で、Dが最高要求。',
+    spell: 'ECUに刻まれた安全の格付け印。ASILが高いほど、術者は厳格な掟に縛られる。' },
+  { term: 'AUTOSAR', read: 'オートザー', magic: '魔法体系の名称', category: 'A',
+    def: 'AUTomotive Open System ARchitecture。車載ソフトウェアの標準化アーキテクチャとそれを策定するコンソーシアムの総称。2003年設立。',
+    spell: '車に宿る魔法体系の名。術者・召喚陣・基盤魔術の三層構造で世界を定義する。' },
+  // B
+  { term: 'BSW', read: 'ビーエスダブリュ', magic: '世界の基盤魔術', category: 'B',
+    def: 'Basic Software。AUTOSARアーキテクチャの中間層。Services・ECU Abstraction・MCAL (Microcontroller Abstraction Layer) の3層から成り、アプリケーションをハードウェアから切り離す。',
+    spell: 'ECUという世界を支える基盤魔術の体系。術者(SWC)はこの大地の上に立って初めて詠唱できる。' },
+  { term: 'Bus-Off', read: 'バスオフ', magic: '破門の儀式', category: 'B',
+    def: 'CANコントローラの状態。TEC (送信エラーカウンタ) が256以上になると遷移。送受信ともに停止し、バスから事実上切り離される。',
+    spell: 'CANバスからの破門。重篤なエラーを繰り返した術者は、バスという共通言語から締め出される。' },
+  // C
+  { term: 'CAN', read: 'キャン', magic: '呪文の通信路', category: 'C',
+    def: 'Controller Area Network。1985年Bosch発案の差動2線バス型通信プロトコル。最大1Mbps(Classical)/8Mbps(FD)。非破壊調停と強力なエラー検出が特徴。ISO 11898。',
+    spell: 'ECU間を繋ぐ差動の魔法陣。アドレスなき通信路に、IDという印を持つ呪文が流れる。' },
+  { term: 'CAN FD', read: 'キャンエフディ', magic: '強化詠唱路', category: 'C',
+    def: 'CAN Flexible Data-rate。ClassicalCANの拡張。データペイロード最大64バイト、データフェーズ最大8Mbps。物理層はClasical CANと同じ。',
+    spell: 'CANバスに新たな詠唱能力を授けた強化版。より大きな呪文を、より速く伝達できる。' },
+  { term: 'CanIf', read: 'キャンイフ', magic: 'CAN抽象魔術', category: 'C',
+    def: 'CAN Interface Module。ECU Abstraction Layerに位置するBSWモジュール。CANコントローラの多様性を抽象化し、上位層(PduR等)に統一APIを提供する。',
+    spell: 'CANコントローラの違いを飲み込む抽象の壁。上位の術者はCANの種類を問わずに呪文を送れる。' },
+  { term: 'CDD', read: 'シーディーディー', magic: '禁忌の魔術', category: 'C',
+    def: 'Complex Device Driver。AUTOSAR層構造を貫いてマイコンに直接アクセする特例ドライバ。エンジン制御の超高速処理などに使用。再利用性を犠牲にする。',
+    spell: '層を超えて届く禁忌の魔術。通常の作法では間に合わぬ緊急時にのみ許される、掟破りの直接詠唱。' },
+  { term: 'Com', read: 'コム', magic: '信号呪文書', category: 'C',
+    def: 'Communication Module。BSW Servicesに位置するモジュール。Signalレベルの送受信APIを提供し、シグナルをIPDUにパック/アンパックする。Com_SendSignalなどのAPIを持つ。',
+    spell: '信号という名の呪文を束ね、PDUという封筒に詰める書記官。通信の意味を管理する呪文書。' },
+  { term: 'CRC', read: 'シーアールシー', magic: '呪文の検証印', category: 'C',
+    def: 'Cyclic Redundancy Check。ビット誤り検出のためのチェックサム。CANでは15次CRC (CRC-15) を使用。送信側が計算した値を付与し、受信側が照合する。',
+    spell: '呪文に添付される検証の印。受け手が同じ計算をして一致すれば呪文は無事。不一致はエラーを宣告する。' },
+  // D
+  { term: 'Dcm', read: 'ディーシーエム', magic: '診断の司', category: 'D',
+    def: 'Diagnostic Communication Manager。UDS (ISO 14229) プロトコルを処理するBSWモジュール。セッション管理・セキュリティアクセス・DID読み書き・DTC操作を担う。',
+    spell: '診断という名の問答を取り仕切る司。UDSの呪文を解釈し、ECUの真の状態を語らせる存在。' },
+  { term: 'Dem', read: 'デム', magic: '故障の記録者', category: 'D',
+    def: 'Diagnostic Event Manager。DTC (Diagnostic Trouble Code) の記録・管理を担うBSWモジュール。デバウンス・確定ロジック・NvM保存・MIL制御などを行う。',
+    spell: '故障という名の出来事を忠実に記録する書記官。何が・いつ・どんな状況で壊れたかを永遠に刻む。' },
+  { term: 'DLC', read: 'ディーエルシー', magic: '呪文の長さ宣言', category: 'D',
+    def: 'Data Length Code。CANフレームのフィールドの一つ。データフィールドのバイト数 (0〜8) を示す4ビット値。受信側はこれを読んでデータを正しく取り出す。',
+    spell: 'この呪文は何バイトか。フレームに刻まれた「詠唱の長さ宣言」。これを誤読すれば呪文は化ける。' },
+  { term: 'DTC', read: 'ディーティーシー', magic: '故障の符号', category: 'D',
+    def: 'Diagnostic Trouble Code。3バイトの故障識別子。Demモジュールが管理し、UDSの0x19サービスで読み出せる。ステータスバイト8ビットと一緒に管理される。',
+    spell: '故障に与えられた3バイトの符号。その符号に8ビットの状態が刻まれ、いつ・どんな故障かを語る。' },
+  // E
+  { term: 'EcuM', read: 'イーシーユーエム', magic: 'ECUの生死を司る者', category: 'E',
+    def: 'ECU Manager。ECUの起動・シャットダウン・スリープ・ウェイクアップのモード遷移を管理するBSWモジュール。BswMと協調して動作する。',
+    spell: 'ECUという術者を眠りから覚まし、また眠らせる存在。起動と終了という最大の儀式を執り行う。' },
+  // F
+  { term: 'FMEA', read: 'エフエムイーエー', magic: '故障の先読み術', category: 'F',
+    def: 'Failure Mode and Effects Analysis (故障モード影響解析)。起こりうる故障モードを列挙し、影響とリスク (RPN=S×O×D) を評価して対策を優先づける手法。',
+    spell: '起こりうる故障をすべて先読みし、その影響を数値化する予知の魔術。壊れ方を知ることが防御の第一歩。' },
+  // H
+  { term: 'HARA', read: 'ハラ', magic: '危険源の儀式', category: 'H',
+    def: 'Hazard Analysis and Risk Assessment (危険源分析とリスク評価)。ISO 26262の開発初期に行う安全解析。S×E×CからASILを決定する。',
+    spell: 'ECUが持つ危険源を一つ一つ召喚し、その危険度を格付けする儀式。この格付けが安全要求の源泉となる。' },
+  // I
+  { term: 'IRV', read: 'アイアールブイ', magic: '同族間の伝言', category: 'I',
+    def: 'Inter-Runnable Variable。同一SWC内の複数Runnable間で状態を共有するための変数。ARXMLで宣言し、Rte_IrvRead/Rte_IrvWriteでアクセスする。',
+    spell: '同じ術者の中に宿る複数の魂が情報を共有するための伝言板。外からは見えない、内なる記憶。' },
+  { term: 'ISO-TP', read: 'アイエスオーティーピー', magic: '長文分割魔術', category: 'I',
+    def: 'ISO 15765-2。CANの8バイト制限を超えるUDSメッセージを分割・再組み立てするトランスポートプロトコル。AUTOSARではCanTpが実装。',
+    spell: 'CANの8バイトという制約を超えるための分割魔術。長文の呪文を小さく切り、送り先で再び繋ぎ合わせる。' },
+  // M
+  { term: 'MCAL', read: 'エムキャル', magic: '低位魔術', category: 'M',
+    def: 'Microcontroller Abstraction Layer。BSW最下層。マイコン固有のペリフェラル(CAN/SPI/ADC/DIO/PWM等)を制御するドライバ群。半導体ベンダが提供することが多い。',
+    spell: 'マイコンという魔法石に直接触れる最下層の魔術。ベンダごとに異なるレジスタを束ねて、上位に同じ顔を見せる。' },
+  { term: 'MISRA-C', read: 'ミスラシー', magic: '術者の言語掟', category: 'M',
+    def: 'Motor Industry Software Reliability Association C。車載組み込み向けのCコーディング規約。MISRA-C:2012では16の必須・143の必要・16の勧告ルールを規定。',
+    spell: '術者が呪文を詠む言語(C言語)に課される掟。制約は弱さでなく、壊れにくい呪文を書くための設計哲学。' },
+  // N
+  { term: 'NvM', read: 'エヌブイエム', magic: '不変の記憶魔術', category: 'N',
+    def: 'NV Memory Manager。不揮発メモリ(Flash/EEPROM)への読み書きを管理するBSWモジュール。電源OFF後もデータを保持する。Fee/EaモジュールとMemIfを介して実際のメモリを操作する。',
+    spell: '電源が消えても消えない記憶を管理する魔術。キャリブレーション値・故障履歴・学習データを永続させる。' },
+  // O
+  { term: 'OSEK', read: 'オゼック', magic: '古代の魔法体系', category: 'O',
+    def: 'Offene Systeme und deren Schnittstellen für die Elektronik in Kraftfahrzeugen。1993年に欧州自動車業界が策定したRTOS規格。AUTOSAR OSの源流。',
+    spell: 'AUTOSARより古い時代の魔法体系。その掟はAUTOSAR OSに受け継がれ、今も車載RTOSの礎となっている。' },
+  // P
+  { term: 'PduR', read: 'ピーディーユーアール', magic: '呪文の交通整理', category: 'P',
+    def: 'PDU Router。BSW Services層のモジュール。PDU(Protocol Data Unit)を複数の送受信経路に振り分けるルーター。ゲートウェイECUの心臓部となる。',
+    spell: 'CANやLINなど複数の呪文通路を行き来するPDUを正しい宛先へ届ける交通整理の魔術師。' },
+  { term: 'Port', read: 'ポート', magic: '術者の窓口', category: 'P',
+    def: 'SWCが外部と通信する唯一の窓口。Provided Port (PPort) は外部への提供、Required Port (RPort) は外部への要求を表す。インターフェースで形式が定義される。',
+    spell: '術者が外の世界と対話するための窓口。窓の形(インターフェース)が同じものどうしだけが繋がることができる。' },
+  // R
+  { term: 'RTE', read: 'アールティーイー', magic: '召喚陣', category: 'R',
+    def: 'Runtime Environment。ARXMLから自動生成される中間コード。SWCとBSWを分離し、SWCにポータビリティとテスタビリティを与える。手書きはしない。',
+    spell: 'SWCとBSWを繋ぐ魔法の召喚陣。ARXMLという設計意図を読み込み、ツールが自動で描き出す。' },
+  { term: 'RMS', read: 'アールエムエス', magic: '優先度の法則', category: 'R',
+    def: 'Rate Monotonic Scheduling。周期が短いタスクほど優先度を高く設定するスケジューリング方式。固定優先度スケジューリングにおいて最適であることが数学的に証明されている。',
+    spell: '速く繰り返す者ほど高位に立つという法則。リアルタイムの世界の優先順位を決める普遍の掟。' },
+  { term: 'Runnable', read: 'ランナブル', magic: '詠唱の単位', category: 'R',
+    def: 'Runnable Entity。SWCの実行単位。一つのSWCに複数持てる。RTE Eventによって起動され、OSタスクの中で実行される。WCET内に完了することが求められる。',
+    spell: '術者が放つ一回分の詠唱。10msごと・受信時・起動時など、引き金(RTE Event)によって呼び覚まされる。' },
+  // S
+  { term: 'SWC', read: 'エスダブリューシー', magic: '術者', category: 'S',
+    def: 'Software Component。AUTOSARにおけるアプリケーションの実装単位。ポートを通じてのみ外部と通信し、BSWを直接呼ばない。独立性・ポータビリティ・テスタビリティが三つの美徳。',
+    spell: '車載制御の呪文を紡ぐ術者。外の世界とはポートという窓口だけで対話し、土台(BSW)の仕組みを知らずに詠唱する。' },
+  // U
+  { term: 'UDS', read: 'ユーディーエス', magic: '診断魔法陣', category: 'U',
+    def: 'Unified Diagnostic Services。ISO 14229で定義される車載診断プロトコル。セッション制御・DTC読み書き・データ読み書き・フラッシュ書き込みなど汎用的なECU診断を提供。',
+    spell: '診断という名の問答を標準化した魔法陣。正しい順序で呪文(SID)を唱えれば、ECUは自らの状態を語り出す。' },
+  // V
+  { term: 'volatile', read: 'ボラタイル', magic: '変化の宣告', magic2: 'C言語修飾子', category: 'V',
+    def: 'C言語の型修飾子。コンパイラに「この変数は外部から予測不能なタイミングで変化する」と宣言する。I/Oレジスタ・ISR共有変数・マルチコア共有変数に必須。',
+    spell: '「この変数は勝手に変わる」というコンパイラへの宣告。これなしにレジスタを読めば、コンパイラが最適化で省略する。' },
+  // W
+  { term: 'WCET', read: 'ダブリューセット', magic: '最悪詠唱時間', category: 'W',
+    def: 'Worst Case Execution Time (最悪実行時間)。あるコードが取りうる最大実行時間。リアルタイムシステムでは、すべてのタスクのWCETがデッドライン内に収まることを設計で保証する必要がある。',
+    spell: 'その呪文が最も長くかかる場合の時間。デッドラインを守るには、最悪の時間で間に合うことを証明しなければならない。' },
+  { term: 'WdgM', read: 'ウォッチドッグエム', magic: '自己監視の守護者', category: 'W',
+    def: 'Watchdog Manager。BSWモジュール。SWCや他BSWモジュールが宣言したCheckpointを監視し、通過タイミングや順序が異常な場合はWatchdog Timerをキックしないことでシステムリセットを引き起こす。',
+    spell: '術者たちが正しく詠唱しているかを監視する守護者。詠唱が止まれば世界のリセットという最終手段を実行する。' },
+];
+
+const alphabet = [...new Set(terms.map(t => t.category))].sort();
+---
+
+<Page
+  title="魔法辞典 — AUTOSAR用語集 | AUTOSAR.MAGIC"
+  description="AUTOSARと車載ソフトウェアの用語集。魔法のメタファーで直感的に理解できる技術用語辞典。"
+>
+  <div class="max-w-5xl mx-auto px-6 pb-24">
+    <Breadcrumb items={[
+      { label: 'HOME', href: '/' },
+      { label: '魔法辞典' },
+    ]} />
+
+    <!-- Header -->
+    <header class="py-12 mb-4 border-b border-cyan-900/30">
+      <div class="font-mono text-xs text-cyan-600 tracking-[0.3em] mb-4 flex items-center gap-3">
+        <span class="h-px w-12 bg-gradient-to-r from-cyan-400 to-purple-500"></span>
+        <span>MAGICAL LEXICON</span>
+      </div>
+      <h1 class="text-4xl md:text-5xl font-serif font-semibold text-white mb-4">
+        魔法辞典
+      </h1>
+      <p class="text-gray-400 text-lg font-light max-w-2xl">
+        AUTOSARと車載ソフトウェアの用語を、魔法のメタファーで読み解く辞典。{terms.length}語収録。
+      </p>
+    </header>
+
+    <!-- Alphabet index -->
+    <nav class="flex flex-wrap gap-2 py-6 mb-8 border-b border-cyan-900/20 font-mono text-xs sticky top-20 bg-[#06060f]/90 backdrop-blur-md z-10">
+      {alphabet.map(letter => (
+        <a href={`#letter-${letter}`} class="text-cyan-700 hover:text-cyan-400 transition-colors px-2 py-1 border border-cyan-900/30 rounded hover:border-cyan-700">
+          {letter}
+        </a>
+      ))}
+      <span class="text-gray-700 ml-auto">{terms.length}語</span>
+    </nav>
+
+    <!-- Terms -->
+    <div class="space-y-2">
+      {alphabet.map(letter => {
+        const letterTerms = terms.filter(t => t.category === letter);
+        return (
+          <section id={`letter-${letter}`} class="scroll-mt-32">
+            <div class="font-mono text-2xl text-cyan-900/60 mb-4 pt-4">{letter}</div>
+            <div class="space-y-4">
+              {letterTerms.map(t => (
+                <article class="border border-cyan-900/30 rounded-xl bg-[#0a0a1f]/60 overflow-hidden hover:border-cyan-800/50 transition-colors">
+                  <!-- Term header -->
+                  <div class="flex flex-col sm:flex-row sm:items-center gap-3 px-6 py-4 border-b border-cyan-900/20">
+                    <div class="flex items-baseline gap-3 flex-wrap">
+                      <h2 class="font-mono text-xl font-bold text-cyan-300">{t.term}</h2>
+                      <span class="text-gray-600 text-sm font-mono">/{t.read}/</span>
+                    </div>
+                    <div class="sm:ml-auto flex items-center gap-2">
+                      <span class="font-mono text-[10px] text-purple-400 border border-purple-800/50 bg-purple-950/20 px-2 py-0.5 rounded">
+                        ✦ {t.magic}
+                      </span>
+                    </div>
+                  </div>
+
+                  <!-- Content -->
+                  <div class="grid md:grid-cols-2 gap-0 divide-y md:divide-y-0 md:divide-x divide-cyan-900/20">
+                    <!-- Definition -->
+                    <div class="px-6 py-4">
+                      <div class="font-mono text-[9px] text-gray-600 tracking-widest mb-2">// TECHNICAL DEFINITION</div>
+                      <p class="text-gray-400 text-sm leading-relaxed">{t.def}</p>
+                    </div>
+                    <!-- Magic metaphor -->
+                    <div class="px-6 py-4 bg-purple-950/10">
+                      <div class="font-mono text-[9px] text-purple-700 tracking-widest mb-2">// MAGICAL INTERPRETATION</div>
+                      <p class="text-gray-400 text-sm leading-relaxed italic">{t.spell}</p>
+                    </div>
+                  </div>
+                </article>
+              ))}
+            </div>
+          </section>
+        );
+      })}
+    </div>
+
+    <!-- Footer nav -->
+    <div class="text-center border-t border-cyan-900/30 pt-12 mt-20">
+      <div class="font-mono text-xs text-gray-700 mb-4">// END OF LEXICON</div>
+      <a href="/" class="inline-flex items-center gap-2 font-mono text-sm text-cyan-600 hover:text-cyan-400 transition-colors">
+        ← HOME に戻る
+      </a>
+    </div>
+  </div>
+</Page>
